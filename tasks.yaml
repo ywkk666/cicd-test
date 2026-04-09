@@ -1,0 +1,24 @@
+# LinkMate 项目任务管理清单
+# 状态说明: todo (待处理), in_progress (进行中), done (已完成)
+
+project: "LinkMate-DX"
+repo: "ywkk666/cicd-test"
+
+issues:
+  - title: "【插件】实现 VS Code 侧边栏基础 UI"
+    assignee: "ywkk666"
+    labels: ["enhancement", "ui"]
+    body: "需包含项目树视图和基础操作按钮，参考 Cursor 的布局逻辑。"
+    status: "todo"
+    issue_number:      # 运行脚本后自动回填
+    branch_name:       # 运行脚本后自动生成格式: feat/task-编号
+    pr_url:            # 运行脚本后自动回填 PR 链接
+
+  - title: "【后端】自动化 WBS 生成算法优化"
+    assignee: ""        # 如果为空，脚本将仅创建 Issue 而不指派
+    labels: ["backend", "algorithm"]
+    body: "优化从需求文档到 Jira 任务拆解的逻辑，减少冗余任务。"
+    status: "todo"
+    issue_number: 
+    branch_name: 
+    pr_url:
