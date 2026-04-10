@@ -106,16 +106,23 @@ def sync_all_in_one():
                 continue
 
         # --- 场景 B: 全新任务流水线 ---
-        # 1. 创建 Issue
-        print(f"  🚀 步骤 1: 创建 GitHub Issue...", end=" ", flush=True)
+        # --- 场景 B: 全新任务流水线 ---
+        # 1. 创建 Issue 并指派负责人
+        print(f"  🚀 步骤 1: 创建 GitHub Issue 并指派负责人...", end=" ", flush=True)
         try:
+            # 从任务数据中获取负责人
+            target_user = task.get("assignee") 
+            
             issue = repo.create_issue(
                 title=title,
-                body=f"该任务专注于 {CODE_DIR_NAME} 目录的开发。\n\n由 LinkMate 指挥中心自动初始化。"
+                body=task.get("body", f"该任务由 LinkMate 自动分配给 {target_user if target_user else '待定'}"),
+                # 如果有负责人，则传入列表格式；否则传空列表
+                assignees=[target_user] if target_user else []
             )
+            
             issue_num = issue.number
             new_branch = f"feat/task-{issue_num}"
-            print(f"✅ #{issue_num}")
+            print(f"✅ #{issue_num} (负责人: {target_user if target_user else '未指定'})")
         except Exception as e:
             print(f"❌ 失败: {e}")
             continue
@@ -142,16 +149,30 @@ def sync_all_in_one():
             print(f"❌ (原因: {err})")
             continue
 
-        # 5. 创建 PR
-        print(f"  🚀 步骤 5: 开启拉取请求 (Pull Request)...", end=" ", flush=True)
+        # 5. 创建关联 PR
+        print(f"  🚀 步骤 5: 开启拉取请求 (PR) 并同步负责人...", end=" ", flush=True)
         try:
             pr = repo.create_pull(
                 title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
-                body=f"Closes #{issue_num}\n\n该 PR 已由脚本自动创建。请在 `{CODE_DIR_NAME}/` 目录下开始开发。",
+                body=f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动指派给负责人进行开发。",
                 head=new_branch,
                 base="main"
             )
-            print(f"✅")
+            
+            # --- 新增：设置 PR 负责人 (Assignee) ---
+            # 通常 PR 的负责人就是 Issue 的负责人
+            if target_user:
+                try:
+                    pr.add_to_assignees(target_user)
+                    print(f"✅ (已指派: {target_user})", end="")
+                except Exception as e:
+                    print(f"⚠️ 指派 PR 失败: {e}", end="")
+
+            # --- 可选：设置审查者 (Reviewer) ---
+            # 如果你想让脚本自动指定你（或其他管理者）来检查代码
+            # pr.create_review_request(reviewers=["你的GitHubID"])
+
+            print(f" ✅")
             
             # 更新内存数据
             task.update({
