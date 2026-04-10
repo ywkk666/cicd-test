@@ -149,32 +149,33 @@ def sync_all_in_one():
             print(f"❌ (原因: {err})")
             continue
 
-        # 5. 创建关联 PR
-        print(f"  🚀 步骤 5: 开启拉取请求 (PR) 并同步负责人...", end=" ", flush=True)
+        # --- 步骤 5: 开启拉取请求 (PR) ---
+        print(f"  🚀 步骤 5: 开启拉取请求 (PR)...", end=" ", flush=True)
         try:
+            # 1. 先创建 PR 实体
             pr = repo.create_pull(
                 title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
-                body=f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动指派给负责人进行开发。",
+                body=f"Closes #{issue_num}\n\n该任务已自动指派给负责人，请在完成后请求 Review。",
                 head=new_branch,
                 base="main"
             )
-            
-            # --- 新增：设置 PR 负责人 (Assignee) ---
-            # 通常 PR 的负责人就是 Issue 的负责人
+
+            # 2. 【在此处插入代码】指派负责人 (Assignee)
+            target_user = task.get("assignee")
             if target_user:
+                pr.add_to_assignees(target_user)
+
+            # 3. 【在此处插入代码】指派审查者 (Reviewer)
+            reviewer = task.get("reviewer")
+            if reviewer:
                 try:
-                    pr.add_to_assignees(target_user)
-                    print(f"✅ (已指派: {target_user})", end="")
+                    # 注意：reviewers 参数必须是一个列表 []
+                    pr.create_review_request(reviewers=[reviewer])
+                    print(f" ✅ (Reviewer: {reviewer})", end="")
                 except Exception as e:
-                    print(f"⚠️ 指派 PR 失败: {e}", end="")
+                    print(f" ⚠️ Reviewer指派失败: {e}", end="")
 
-            # --- 可选：设置审查者 (Reviewer) ---
-            # 如果你想让脚本自动指定你（或其他管理者）来检查代码
-            # pr.create_review_request(reviewers=["你的GitHubID"])
-
-            print(f" ✅")
-            
-            # 更新内存数据
+            # 4. 最后更新本地数据状态
             task.update({
                 "issue_number": issue_num,
                 "branch_name": new_branch,
@@ -182,9 +183,10 @@ def sync_all_in_one():
                 "status": "in_progress"
             })
             updated = True
-        except Exception as e:
-            print(f"❌ 失败: {e}")
+            print(f" ✅")
 
+        except Exception as e:
+            print(f" ❌ 失败: {e}")
     # --- 阶段 2: 数据持久化 ---
     print(f"\n[阶段 2: 指挥中心状态存档]")
     if updated:

@@ -57,7 +57,14 @@ issues:
   - automation
   - devops
   body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: in_progress
+  status: done
   issue_number: 28
   branch_name: feat/task-28
   pr_url: https://github.com/ywkk666/cicd-test/pull/29
+- title: 优化 task_center 脚本
+  assignee: ywkk666
+  reviewer: ywkk666
+  status: in_progress
+  issue_number: 30
+  branch_name: feat/task-30
+  pr_url: https://github.com/ywkk666/cicd-test/pull/31
