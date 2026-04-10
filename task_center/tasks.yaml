@@ -1,0 +1,33 @@
+project: LinkMate-DX
+repo: ywkk666/cicd-test
+issues:
+- title: 【后端】实现 YAML 自动校验逻辑
+  assignee: ywkk666
+  labels:
+  - backend
+  - validation
+  body: 编写一个 Python 函数，在同步前检查 tasks.yaml 的语法规范。
+  status: done
+  issue_number: 18
+  branch_name: feat/task-18
+  pr_url: https://github.com/ywkk666/cicd-test/pull/19
+- title: 【脚本】实现自动化运行后的分支清理提醒
+  assignee: ywkk666
+  labels:
+  - enhancement
+  - script
+  body: 在脚本执行完毕后，增加一个逻辑：检测本地已合并的分支并提醒。
+  status: done
+  issue_number: 20
+  branch_name: feat/task-20
+  pr_url: https://github.com/ywkk666/cicd-test/pull/21
+- title: 【监控】集成 GitHub Actions 自动检查任务进度
+  assignee: ywkk666
+  labels:
+  - automation
+  - devops
+  body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
+  status: in_progress
+  issue_number: 22
+  branch_name: feat/task-22
+  pr_url: https://github.com/ywkk666/cicd-test/pull/23
