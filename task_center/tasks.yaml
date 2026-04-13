@@ -71,3 +71,14 @@ issues:
   issue_number: 34
   branch_name: feat/task-34
   pr_url: https://github.com/ywkk666/cicd-test/pull/35
+- title: 【监控6】测试
+  assignee: ywkk666
+  reviewer: null
+  labels:
+  - automation
+  - devops
+  body: 测试担当者
+  status: in_progress
+  issue_number: 36
+  branch_name: feat/task-36
+  pr_url: https://github.com/ywkk666/cicd-test/pull/37

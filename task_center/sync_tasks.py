@@ -77,6 +77,8 @@ def sync_all_in_one():
         issue_num = task.get("issue_number")
         branch_name = task.get("branch_name")
         pr_url = task.get("pr_url")
+        target_user = task.get("assignee")   # 识别 YAML 中的 assignee 字段
+        reviewer_user = task.get("reviewer") # 识别 YAML 中的 reviewer 字段
         
         print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
 
@@ -172,10 +174,17 @@ def sync_all_in_one():
                 try: pr.add_to_assignees(target_user)
                 except: pass
             
-            # 指派 Reviewer (跳过自己)
-            if reviewer_user and reviewer_user != MY_GITHUB_ID:
-                try: pr.create_review_request(reviewers=[reviewer_user])
-                except: pass
+            # 指派审查者 (Reviewer)
+            # 逻辑：如果有定义 reviewer，且不是我自己（GitHub不允许指派自己为审查者）
+            if reviewer_user:
+                if reviewer_user != MY_GITHUB_ID:
+                    try: 
+                        pr.create_review_request(reviewers=[reviewer_user])
+                        print(f"✅ (R: {reviewer_user})", end="")
+                    except: 
+                        print(f"⚠️ (R指派失败)", end="")
+                else:
+                    print(f"ℹ️ (跳过自审)", end="")
 
             print(f" ✅ (PR: {pr.number})")
             
