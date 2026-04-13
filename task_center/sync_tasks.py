@@ -22,6 +22,9 @@ ACCESS_TOKEN = os.getenv("GITHUB_TOKEN")
 if not ACCESS_TOKEN:
     print(f"❌ 错误: 无法在 {ENV_PATH} 中读取到 GITHUB_TOKEN")
     exit(1)
+
+DEFAULT_BASE_BRANCH = "develop"    # 默认合并目标分支
+ALLOWED_BASES = ["main", "develop", "test"] # 允许的合法分支白名单
 # ==========================================
 
 def run_git(command):
@@ -79,6 +82,14 @@ def sync_all_in_one():
         pr_url = task.get("pr_url")
         target_user = task.get("assignee")   # 识别 YAML 中的 assignee 字段
         reviewer_user = task.get("reviewer") # 识别 YAML 中的 reviewer 字段
+        target_base = task.get("base_branch", DEFAULT_BASE_BRANCH)
+
+        # 【核心校验逻辑插入点】
+        ALLOWED_BASES = ["main", "develop", "test"]
+        if target_base not in ALLOWED_BASES:
+            print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
+            print(f"  ❌ 错误: 不支持的目标分支 '{target_base}'，请检查 YAML 配置。")
+            continue
         
         print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
 
@@ -144,9 +155,15 @@ def sync_all_in_one():
             print(f"❌ 失败: {e}"); continue
 
         # 2. 分支创建
-        print(f"  🚀 步骤 2: 初始化本地开发分支 [{new_branch}]...", end=" ", flush=True)
-        run_git(f"git checkout -b {new_branch}")
+        # 2. 分支创建（从目标基准分支切出，确保代码基础一致）
+        print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
+        
+        # 先确保本地有最新的基准分支
+        run_git(f"git fetch origin {target_base}")
+        # 从对应的基准分支切出新分支
+        run_git(f"git checkout -b {new_branch} origin/{target_base}")
         print("✅")
+        
 
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
@@ -168,7 +185,8 @@ def sync_all_in_one():
             pr = repo.create_pull(
                 title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
                 body=f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动指派。",
-                head=new_branch, base="main"
+                head=new_branch, 
+                base=target_base
             )
             if target_user:
                 try: pr.add_to_assignees(target_user)

@@ -82,3 +82,14 @@ issues:
   issue_number: 36
   branch_name: ''
   pr_url: https://github.com/ywkk666/cicd-test/pull/37
+- title: 【监控7】测试
+  assignee: ywkk666
+  reviewer: null
+  labels:
+  - automation
+  - devops
+  body: 测试担当者111
+  status: done
+  issue_number: 38
+  branch_name: ''
+  pr_url: https://github.com/ywkk666/cicd-test/pull/39
