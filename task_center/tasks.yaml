@@ -78,7 +78,7 @@ issues:
   - automation
   - devops
   body: 测试担当者
-  status: in_progress
+  status: done
   issue_number: 36
-  branch_name: feat/task-36
+  branch_name: ''
   pr_url: https://github.com/ywkk666/cicd-test/pull/37
