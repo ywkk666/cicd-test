@@ -7,15 +7,14 @@ from dotenv import load_dotenv
 
 # ================= 配置区 =================
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR.parent                # cicd-test 仓库根目录
+PROJECT_ROOT = BASE_DIR.parent
 ENV_PATH = BASE_DIR / ".env"
 YAML_FILE = BASE_DIR / "tasks.yaml"
 REPO_NAME = "ywkk666/cicd-test" 
 
-# 核心配置：你的代码区目录
 CODE_DIR_NAME = "helloword" 
+MY_GITHUB_ID = "ywkk666"
 
-# 加载 Token
 if ENV_PATH.exists():
     load_dotenv(dotenv_path=ENV_PATH)
 
@@ -26,20 +25,14 @@ if not ACCESS_TOKEN:
 # ==========================================
 
 def run_git(command):
-    """执行 Git 命令并返回是否成功"""
     try:
-        result = subprocess.run(
-            command, shell=True, check=True, 
-            capture_output=True, text=True, encoding="utf-8"
-        )
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, encoding="utf-8")
         return True, result.stdout.strip()
     except subprocess.CalledProcessError as e:
         return False, e.stderr.strip()
 
 def sync_all_in_one():
-    print(f"\n{'='*50}")
-    print(f"📡 LinkMate 自动化指挥中心 - 正在启动...")
-    print(f"{'='*50}")
+    print(f"\n{'='*50}\n📡 Github 任务分发中心 - 正在启动...\n{'='*50}")
     print(f"📍 根目录: {PROJECT_ROOT}")
     print(f"📦 目标仓库: {REPO_NAME}")
     print(f"✅ 鉴权状态: Token 已加载 ({ACCESS_TOKEN[:7]}***)")
@@ -77,55 +70,76 @@ def sync_all_in_one():
     issues_list = data.get("issues", [])
     total_tasks = len(issues_list)
 
-    print(f"\n[阶段 1: 任务流水线处理 (共 {total_tasks} 项)]")
+    print(f"\n[阶段 1: 任务状态对齐与流水线处理]")
 
     for idx, task in enumerate(issues_list, 1):
         title = task.get("title", "未命名任务")
         issue_num = task.get("issue_number")
+        branch_name = task.get("branch_name")
+        pr_url = task.get("pr_url")
         
         print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
 
-        # --- 场景 A: 存量任务状态对齐 ---
+        # --- 场景 A: 存量任务对齐 (可视化增强版) ---
         if issue_num:
+            print(f"  🔍 步骤 1: 判定云端执行状态 (#{issue_num})...", end=" ", flush=True)
             try:
-                print(f"  🔍 步骤: 检查云端 Issue #{issue_num} 状态...", end=" ", flush=True)
+                # 1.1 获取云端实时数据
                 gh_issue = repo.get_issue(int(issue_num))
-                
-                if gh_issue.state == "closed":
+                is_merged = False
+                if pr_url:
+                    pr_num = int(pr_url.split('/')[-1])
+                    is_merged = repo.get_pull(pr_num).is_merged()
+
+                # 1.2 逻辑定性
+                if gh_issue.state == "closed" or is_merged:
+                    # 确定已完成
+                    status_msg = "已合并" if is_merged else "已关闭"
                     if task.get("status") != "done":
                         task["status"] = "done"
                         updated = True
-                        print("✅ [已关闭 -> 同步本地]")
+                        print(f"✅ [{status_msg} -> 状态更新为 done]")
                     else:
-                        print("✅ [已完成]")
+                        print(f"✅ [已完成]")
+
+                    # 1.3 执行清理动作
+                    if branch_name:
+                        print(f"  🧹 步骤 2: 清理残留开发分支 [{branch_name}]...", end=" ", flush=True)
+                        try:
+                            ref = repo.get_git_ref(f"heads/{branch_name}")
+                            ref.delete()
+                            print(f"✅ [物理删除成功]")
+                        except:
+                            print(f"ℹ️ [分支此前已清理]")
+                        
+                        task["branch_name"] = "" # 彻底抹除记录
+                        updated = True
+                    continue # 存量任务处理结束，跳向下一个
                 else:
-                    print(f"⏳ [进行中] (PR: {task.get('pr_url', '无')})")
-                continue 
+                    # 仍然在进行中
+                    print(f"⏳ [进行中] (Issue 开启中 / PR 尚未合并)")
+                    continue 
+
             except Exception as e:
-                print(f"⚠️  追踪失败: {e}")
+                print(f"❌ 追踪失败: {e}")
                 continue
 
         # --- 场景 B: 全新任务流水线 ---
-        # --- 场景 B: 全新任务流水线 ---
+        print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
+
         # 1. 创建 Issue 并指派负责人
         print(f"  🚀 步骤 1: 创建 GitHub Issue 并指派负责人...", end=" ", flush=True)
         try:
-            # 从任务数据中获取负责人
-            target_user = task.get("assignee") 
-            
             issue = repo.create_issue(
                 title=title,
                 body=task.get("body", f"该任务由 LinkMate 自动分配给 {target_user if target_user else '待定'}"),
-                # 如果有负责人，则传入列表格式；否则传空列表
                 assignees=[target_user] if target_user else []
             )
-            
             issue_num = issue.number
             new_branch = f"feat/task-{issue_num}"
             print(f"✅ #{issue_num} (负责人: {target_user if target_user else '未指定'})")
         except Exception as e:
-            print(f"❌ 失败: {e}")
-            continue
+            print(f"❌ 失败: {e}"); continue
 
         # 2. 分支创建
         print(f"  🚀 步骤 2: 初始化本地开发分支 [{new_branch}]...", end=" ", flush=True)
@@ -141,38 +155,29 @@ def sync_all_in_one():
         print(f"  🚀 步骤 4: 推送分支至云端仓库...", end=" ", flush=True)
         remote_url = f"https://{ACCESS_TOKEN}@github.com/{REPO_NAME}.git"
         success, err = run_git(f"git push -u {remote_url} {new_branch}")
-        run_git(f"git remote set-url origin https://github.com/{REPO_NAME}.git") # 安全重置
-        
-        if success:
-            print("✅")
+        run_git(f"git remote set-url origin https://github.com/{REPO_NAME}.git")
+        if success: print("✅")
         else:
-            print(f"❌ (原因: {err})")
-            continue
+            print(f"❌ (原因: {err})"); continue
 
         # 5. 创建关联 PR
         print(f"  🚀 步骤 5: 开启拉取请求 (PR) 并同步负责人...", end=" ", flush=True)
         try:
             pr = repo.create_pull(
                 title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
-                body=f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动指派给负责人进行开发。",
-                head=new_branch,
-                base="main"
+                body=f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动指派。",
+                head=new_branch, base="main"
             )
-            
-            # --- 新增：设置 PR 负责人 (Assignee) ---
-            # 通常 PR 的负责人就是 Issue 的负责人
             if target_user:
-                try:
-                    pr.add_to_assignees(target_user)
-                    print(f"✅ (已指派: {target_user})", end="")
-                except Exception as e:
-                    print(f"⚠️ 指派 PR 失败: {e}", end="")
+                try: pr.add_to_assignees(target_user)
+                except: pass
+            
+            # 指派 Reviewer (跳过自己)
+            if reviewer_user and reviewer_user != MY_GITHUB_ID:
+                try: pr.create_review_request(reviewers=[reviewer_user])
+                except: pass
 
-            # --- 可选：设置审查者 (Reviewer) ---
-            # 如果你想让脚本自动指定你（或其他管理者）来检查代码
-            # pr.create_review_request(reviewers=["你的GitHubID"])
-
-            print(f" ✅")
+            print(f" ✅ (PR: {pr.number})")
             
             # 更新内存数据
             task.update({
@@ -185,23 +190,20 @@ def sync_all_in_one():
         except Exception as e:
             print(f"❌ 失败: {e}")
 
-    # --- 阶段 2: 数据持久化 ---
-    print(f"\n[阶段 2: 指挥中心状态存档]")
+    # --- 阶段 3: 数据持久化 ---
+    print(f"\n[阶段 3: 指挥中心状态存档]")
     if updated:
         os.chdir(BASE_DIR)
         with open(YAML_FILE, "w", encoding="utf-8") as f:
             yaml.dump(data, f, allow_unicode=True, sort_keys=False)
         print(f"  💾 状态更新: {YAML_FILE.name} 已同步。")
     else:
-        print("  😴 无状态变更，无需存档。")
+        print("  😴 无状态变更。")
     
     # 归位
     os.chdir(PROJECT_ROOT)
     run_git("git checkout main")
-    
-    print(f"\n{'='*50}")
-    print(f"🎉 自动化流程全部执行完毕！")
-    print(f"{'='*50}")
+    print(f"\n{'='*60}\n🎉 自动化流程全部执行完毕！\n{'='*60}")
 
 if __name__ == "__main__":
     sync_all_in_one()

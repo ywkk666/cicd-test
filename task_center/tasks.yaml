@@ -9,7 +9,7 @@ issues:
   body: 编写一个 Python 函数，在同步前检查 tasks.yaml 的语法规范。
   status: done
   issue_number: 18
-  branch_name: feat/task-18
+  branch_name: ''
   pr_url: https://github.com/ywkk666/cicd-test/pull/19
 - title: 【脚本】实现自动化运行后的分支清理提醒
   assignee: ywkk666
@@ -19,7 +19,7 @@ issues:
   body: 在脚本执行完毕后，增加一个逻辑：检测本地已合并的分支并提醒。
   status: done
   issue_number: 20
-  branch_name: feat/task-20
+  branch_name: ''
   pr_url: https://github.com/ywkk666/cicd-test/pull/21
 - title: 【监控】集成 GitHub Actions 自动检查任务进度
   assignee: ywkk666
@@ -29,7 +29,7 @@ issues:
   body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
   status: done
   issue_number: 22
-  branch_name: feat/task-22
+  branch_name: ''
   pr_url: https://github.com/ywkk666/cicd-test/pull/23
 - title: 【监控2】集成 GitHub Actions 自动检查任务进度
   assignee: ywkk666
@@ -37,9 +37,9 @@ issues:
   - automation
   - devops
   body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: in_progress
+  status: done
   issue_number: 24
-  branch_name: feat/task-24
+  branch_name: ''
   pr_url: https://github.com/ywkk666/cicd-test/pull/25
 - title: 【监控3】测试
   assignee: ywkk666
@@ -57,7 +57,17 @@ issues:
   - automation
   - devops
   body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: in_progress
+  status: done
   issue_number: 28
-  branch_name: feat/task-28
+  branch_name: ''
   pr_url: https://github.com/ywkk666/cicd-test/pull/29
+- title: 【监控5】测试
+  assignee: ywkk666
+  labels:
+  - automation
+  - devops
+  body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
+  status: in_progress
+  issue_number: 34
+  branch_name: feat/task-34
+  pr_url: https://github.com/ywkk666/cicd-test/pull/35
