@@ -75,16 +75,31 @@ def sync_all_in_one():
 
     print(f"\n[阶段 1: 任务状态对齐与流水线处理]")
 
+    # =================================================================
+    # 【新增 1】: 建立本地 ID 到云端 Issue 编号的映射表（解决冷启动依赖）
+    id_to_num_map = {
+        task.get('id'): task.get('issue_number') 
+        for task in issues_list if task.get('id')
+    }
+    # =================================================================
+
     for idx, task in enumerate(issues_list, 1):
         title = task.get("title", "未命名任务")
         issue_num = task.get("issue_number")
         branch_name = task.get("branch_name")
         pr_url = task.get("pr_url")
-        target_user = task.get("assignee")   # 识别 YAML 中的 assignee 字段
-        reviewer_user = task.get("reviewer") # 识别 YAML 中的 reviewer 字段
+        target_user = task.get("assignee")
+        reviewer_user = task.get("reviewer")
         target_base = task.get("base_branch", DEFAULT_BASE_BRANCH)
+        
+        # 【提取新增的 YAML 字段】
+        local_id = task.get("id")
+        dep_id = task.get("depends_on")
+        labels_list = task.get("labels", [])
+        milestone_name = task.get("milestone")
+        project_name = task.get("project_name") # 提取了看板名称，暂留扩展接口
 
-        # 【核心校验逻辑插入点】
+        # 分支校验
         ALLOWED_BASES = ["main", "develop", "test"]
         if target_base not in ALLOWED_BASES:
             print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
@@ -93,20 +108,17 @@ def sync_all_in_one():
         
         print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
 
-        # --- 场景 A: 存量任务对齐 (可视化增强版) ---
+        # --- 场景 A: 存量任务对齐 ---
         if issue_num:
             print(f"  🔍 步骤 1: 判定云端执行状态 (#{issue_num})...", end=" ", flush=True)
             try:
-                # 1.1 获取云端实时数据
                 gh_issue = repo.get_issue(int(issue_num))
                 is_merged = False
                 if pr_url:
                     pr_num = int(pr_url.split('/')[-1])
                     is_merged = repo.get_pull(pr_num).is_merged()
 
-                # 1.2 逻辑定性
                 if gh_issue.state == "closed" or is_merged:
-                    # 确定已完成
                     status_msg = "已合并" if is_merged else "已关闭"
                     if task.get("status") != "done":
                         task["status"] = "done"
@@ -115,7 +127,6 @@ def sync_all_in_one():
                     else:
                         print(f"✅ [已完成]")
 
-                    # 1.3 执行清理动作
                     if branch_name:
                         print(f"  🧹 步骤 2: 清理残留开发分支 [{branch_name}]...", end=" ", flush=True)
                         try:
@@ -125,46 +136,87 @@ def sync_all_in_one():
                         except:
                             print(f"ℹ️ [分支此前已清理]")
                         
-                        task["branch_name"] = "" # 彻底抹除记录
+                        task["branch_name"] = "" 
                         updated = True
-                    continue # 存量任务处理结束，跳向下一个
                 else:
-                    # 仍然在进行中
                     print(f"⏳ [进行中] (Issue 开启中 / PR 尚未合并)")
-                    continue 
+                
+                continue # 存量任务处理结束，跳向下一个
 
             except Exception as e:
                 print(f"❌ 追踪失败: {e}")
                 continue
 
         # --- 场景 B: 全新任务流水线 ---
-        print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
+        
+        # 【新增 2】: 状态过滤，不是 todo 的不执行
+        if task.get("status") and task.get("status") != "todo":
+            print(f"  ⏭️ 跳过: 状态为 '{task.get('status')}'")
+            continue
 
-        # 1. 创建 Issue 并指派负责人
-        print(f"  🚀 步骤 1: 创建 GitHub Issue 并指派负责人...", end=" ", flush=True)
+        # =================================================================
+        # 【新增 3】: 依赖拦截逻辑
+        if dep_id:
+            target_issue_num = id_to_num_map.get(dep_id)
+            if not target_issue_num:
+                print(f"  ⏳ 拦截: 依赖任务 [{dep_id}] 尚未生成 Issue。跳过本任务。")
+                continue
+            
+            try:
+                remote_issue = repo.get_issue(int(target_issue_num))
+                if remote_issue.state != "closed":
+                    print(f"  🛑 拦截: 前置任务 #{target_issue_num} 仍在开发中 (未关闭)。跳过本任务。")
+                    continue
+                print(f"  ✅ 依赖校验通过: 前置任务 #{target_issue_num} 已合并。")
+            except Exception as e:
+                print(f"  ⚠️ 校验依赖 #{target_issue_num} 失败: {e}")
+                continue
+        # =================================================================
+
+        # =================================================================
+        # 【新增 4】: 获取并匹配 Milestone 对象
+        milestone_obj = None
+        if milestone_name:
+            try:
+                milestones = repo.get_milestones(state='open')
+                for ms in milestones:
+                    if ms.title == milestone_name:
+                        milestone_obj = ms
+                        break
+            except Exception as e:
+                print(f"  ⚠️ 无法获取里程碑信息: {e}")
+        # =================================================================
+
+        # 1. 创建 Issue
+        print(f"  🚀 步骤 1: 创建 GitHub Issue 并指派属性...", end=" ", flush=True)
         try:
-            issue = repo.create_issue(
-                title=title,
-                body=task.get("body", f"该任务由 LinkMate 自动分配给 {target_user if target_user else '待定'}"),
-                assignees=[target_user] if target_user else []
-            )
+            # 【修改 1】: 动态构建 Issue 参数，加入标签和里程碑
+            issue_kwargs = {
+                "title": title,
+                "body": task.get("body", f"该任务由 LinkMate 自动分配。")
+            }
+            if target_user: issue_kwargs["assignees"] = [target_user]
+            if labels_list: issue_kwargs["labels"] = labels_list
+            if milestone_obj: issue_kwargs["milestone"] = milestone_obj
+
+            issue = repo.create_issue(**issue_kwargs)
             issue_num = issue.number
             new_branch = f"feat/task-{issue_num}"
-            print(f"✅ #{issue_num} (负责人: {target_user if target_user else '未指定'})")
+            print(f"✅ #{issue_num}")
+
+            # 【新增 5】: 创建成功后，立刻将自己的编号注册到映射表中！供同批次后面的任务使用
+            if local_id:
+                id_to_num_map[local_id] = issue_num
+
         except Exception as e:
             print(f"❌ 失败: {e}"); continue
 
         # 2. 分支创建
-        # 2. 分支创建（从目标基准分支切出，确保代码基础一致）
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
-        
-        # 先确保本地有最新的基准分支
         run_git(f"git fetch origin {target_base}")
-        # 从对应的基准分支切出新分支
         run_git(f"git checkout -b {new_branch} origin/{target_base}")
         print("✅")
         
-
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
         run_git(f'git commit --allow-empty -m "feat({CODE_DIR_NAME}): 开启任务 #{issue_num} 分支"')
@@ -180,29 +232,40 @@ def sync_all_in_one():
             print(f"❌ (原因: {err})"); continue
 
         # 5. 创建关联 PR
-        print(f"  🚀 步骤 5: 开启拉取请求 (PR) 并同步负责人...", end=" ", flush=True)
+        print(f"  🚀 步骤 5: 开启拉取请求 (PR) 并同步所有属性...", end=" ", flush=True)
         try:
+            # 【修改 2】: 如果有依赖，在 PR Body 里面增加视觉提醒
+            pr_body = f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动生成。"
+            if dep_id and id_to_num_map.get(dep_id):
+                pr_body += f"\n\n⚠️ **依赖提醒**: 请确保 #{id_to_num_map.get(dep_id)} 已合入目标分支后再进行测试。"
+
             pr = repo.create_pull(
                 title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
-                body=f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动指派。",
+                body=pr_body,
                 head=new_branch, 
                 base=target_base
             )
+
+            # 【新增 6】: 同步 Issue 的标签和里程碑到 PR
+            if labels_list:
+                try: pr.add_to_labels(*labels_list)
+                except: pass
+            if milestone_obj:
+                try: pr.edit(milestone=milestone_obj)
+                except: pass
+
             if target_user:
                 try: pr.add_to_assignees(target_user)
                 except: pass
             
-            # 指派审查者 (Reviewer)
-            # 逻辑：如果有定义 reviewer，且不是我自己（GitHub不允许指派自己为审查者）
-            if reviewer_user:
-                if reviewer_user != MY_GITHUB_ID:
-                    try: 
-                        pr.create_review_request(reviewers=[reviewer_user])
-                        print(f"✅ (R: {reviewer_user})", end="")
-                    except: 
-                        print(f"⚠️ (R指派失败)", end="")
-                else:
-                    print(f"ℹ️ (跳过自审)", end="")
+            if reviewer_user and reviewer_user != MY_GITHUB_ID:
+                try: 
+                    pr.create_review_request(reviewers=[reviewer_user])
+                    print(f"✅ (R: {reviewer_user})", end="")
+                except: 
+                    print(f"⚠️ (R指派失败)", end="")
+            elif reviewer_user == MY_GITHUB_ID:
+                print(f"ℹ️ (跳过自审)", end="")
 
             print(f" ✅ (PR: {pr.number})")
             
@@ -211,7 +274,7 @@ def sync_all_in_one():
                 "issue_number": issue_num,
                 "branch_name": new_branch,
                 "pr_url": pr.html_url,
-                "status": "in_progress"
+                "status": "processing" # 使用 processing，下次运行就不会重复触发
             })
             updated = True
         except Exception as e:
