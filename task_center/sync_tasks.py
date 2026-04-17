@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from github import Github, Auth
 from dotenv import load_dotenv
+import requests
 
 # ================= 配置区 =================
 BASE_DIR = Path(__file__).resolve().parent
@@ -33,6 +34,55 @@ def run_git(command):
         return True, result.stdout.strip()
     except subprocess.CalledProcessError as e:
         return False, e.stderr.strip()
+
+def add_to_project_by_name(token, user_login, project_name, content_id):
+    """
+    通过项目名称动态查找并添加 Issue/PR
+    """
+    headers = {"Authorization": f"token {token}"}
+    
+    # 1. 查找用户下所有的 Projects，并匹配名称
+    query_projects = """
+    query($login: String!) {
+      user(login: $login) {
+        projectsV2(first: 20) {
+          nodes {
+            id
+            title
+            number
+          }
+        }
+      }
+    }
+    """
+    try:
+        resp = requests.post('https://api.github.com/graphql', 
+                            json={'query': query_projects, 'variables': {"login": user_login}}, 
+                            headers=headers).json()
+        
+        projects = resp['data']['user']['projectsV2']['nodes']
+        # 匹配名称 (忽略大小写)
+        target_project = next((p for p in projects if p['title'].lower() == project_name.lower()), None)
+        
+        if not target_project:
+            print(f"    ⚠️ 未找到名为 '{project_name}' 的项目")
+            return
+
+        # 2. 执行添加动作
+        add_mutation = """
+        mutation($project: ID!, $content: ID!) {
+          addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
+            item { id }
+          }
+        }
+        """
+        requests.post('https://api.github.com/graphql', 
+                      json={'query': add_mutation, 'variables': {"project": target_project['id'], "content": content_id}}, 
+                      headers=headers)
+        print(f"    ✅ 已动态关联至 Project: {target_project['title']} (#{target_project['number']})")
+        
+    except Exception as e:
+        print(f"    ❌ Project 联动失败: {e}")
 
 def sync_all_in_one():
     print(f"\n{'='*50}\n📡 Github 任务分发中心 - 正在启动...\n{'='*50}")
@@ -97,7 +147,7 @@ def sync_all_in_one():
         dep_id = task.get("depends_on")
         labels_list = task.get("labels", [])
         milestone_name = task.get("milestone")
-        project_name = task.get("project_name") # 提取了看板名称，暂留扩展接口
+        yml_project_name = task.get("project_name") # 提取了看板名称，暂留扩展接口
 
         # 分支校验
         ALLOWED_BASES = ["main", "develop", "test"]
@@ -175,14 +225,30 @@ def sync_all_in_one():
 
         # =================================================================
         # 【新增 4】: 获取并匹配 Milestone 对象
+        # --- 增强版里程碑匹配 ---
         milestone_obj = None
         if milestone_name:
+            # 预处理：去除 YAML 中可能存在的末尾空格
+            target_ms_name = str(milestone_name).strip()
             try:
-                milestones = repo.get_milestones(state='open')
+                # 获取所有状态的里程碑（防止你想关联一个刚刚关闭的里程碑）
+                milestones = repo.get_milestones(state='all') 
+                
+                # 调试打印：如果没匹配上，你可以看到当前仓库到底有哪些里程碑
+                all_ms_titles = []
+                
                 for ms in milestones:
-                    if ms.title == milestone_name:
+                    all_ms_titles.append(ms.title)
+                    # 使用 strip() 并忽略大小写进行匹配，增加容错率
+                    if ms.title.strip().lower() == target_ms_name.lower():
                         milestone_obj = ms
                         break
+                
+                if not milestone_obj:
+                    print(f"  ⚠️ 未找到里程碑 '{target_ms_name}'。当前仓库可用: {all_ms_titles}")
+                else:
+                    print(f"  🎯 已匹配里程碑: {milestone_obj.title}")
+
             except Exception as e:
                 print(f"  ⚠️ 无法获取里程碑信息: {e}")
         # =================================================================
@@ -210,6 +276,28 @@ def sync_all_in_one():
 
         except Exception as e:
             print(f"❌ 失败: {e}"); continue
+        
+        if yml_project_name:
+            # 调用我们刚才写的增强版函数
+            # 注意：content_id 传的是 issue.node_id
+            add_to_project_by_name(ACCESS_TOKEN, "ywkk666", yml_project_name, issue.node_id)
+
+        # ============================================================
+        # 🚀 [此处插入：建立 Blocked By 关系代码]
+        # ============================================================
+        if dep_id:
+            parent_issue_num = id_to_num_map.get(dep_id) # 51
+            if parent_issue_num:
+                # 方案：在 102 的 Body 最顶部插入加粗的关联信息
+                dependency_header = f"> ### 🔗 前置任务已完成: #{parent_issue_num}\n\n"
+                
+                # 更新 102 的 Body
+                new_body = dependency_header + issue.body
+                issue.edit(body=new_body)
+                
+                # 额外动作：在 102 评论区留一个脚印，这会在 101 的时间轴里留下反向链接
+                issue.create_comment(f"🚀 本任务是 #{parent_issue_num} 的后续步骤，前置任务已确认完成。")
+                print(f"    ✅ 已在 #{issue_num} 中建立对已完成任务 #{parent_issue_num} 的引用")
 
         # 2. 分支创建
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
@@ -234,15 +322,21 @@ def sync_all_in_one():
         # 5. 创建关联 PR
         print(f"  🚀 步骤 5: 开启拉取请求 (PR) 并同步所有属性...", end=" ", flush=True)
         try:
-            # 【修改 2】: 如果有依赖，在 PR Body 里面增加视觉提醒
-            pr_body = f"Closes #{issue_num}\n\n该 PR 由 LinkMate 自动生成。"
-            if dep_id and id_to_num_map.get(dep_id):
-                pr_body += f"\n\n⚠️ **依赖提醒**: 请确保 #{id_to_num_map.get(dep_id)} 已合入目标分支后再进行测试。"
+            target_base = task.get("base_branch", DEFAULT_BASE_BRANCH)
+            
+            # 【杀手锏动作 1】：动态切换默认分支
+            # 只有当目标分支不是当前默认分支时才切换，减少 API 调用
+            if repo.default_branch != target_base:
+                repo.edit(default_branch=target_base)
+                print(f" (已临时将默认分支切至 {target_base})", end="")
 
+            # 【杀手锏动作 2】：创建 PR
+            # 必须包含 Closes 关键字，且在默认分支为 target_base 时创建
+            pr_body = f"Closes #{issue_num}\n\nLinked via automated deployment."
             pr = repo.create_pull(
                 title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
                 body=pr_body,
-                head=new_branch, 
+                head=new_branch,
                 base=target_base
             )
 
@@ -268,6 +362,14 @@ def sync_all_in_one():
                 print(f"ℹ️ (跳过自审)", end="")
 
             print(f" ✅ (PR: {pr.number})")
+
+            target_project_name = task.get("project_name")
+            if target_project_name:
+                try:
+                    # 使用 PR 的 node_id 进行 GraphQL 关联
+                    add_to_project_by_name(ACCESS_TOKEN, "ywkk666", target_project_name, pr.node_id)
+                except Exception as proj_err:
+                    print(f" ⚠️ (PR入板失败: {proj_err})", end="")
             
             # 更新内存数据
             task.update({
