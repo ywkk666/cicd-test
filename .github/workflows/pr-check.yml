@@ -33,5 +33,5 @@ jobs:
 
       - name: 数据一致性检查
         run: |
-          # 运行一个简单的校验，确保 tasks.yaml 没被弄坏
-          python -c "import yaml; yaml.safe_load(open('tasks.yaml'))"
+          # 修正：使用 ruamel.yaml 进行解析校验
+          python -c "from ruamel.yaml import YAML; YAML().load(open('task_center/tasks.yaml'))"
