@@ -17,7 +17,7 @@ jobs:
 
       - name: 安装 test1.py 所需的依赖
         run: |
-          pip install pandas ruamel.yaml pytest
+          pip install pandas ruamel.yaml pytest flake8
           # 如果 test1.py 还有其他依赖，记得写在这里
 
       - name: 静态检查 - 扫描 test1.py
@@ -33,5 +33,5 @@ jobs:
 
       - name: 数据一致性检查
         run: |
-          # 运行一个简单的校验，确保 tasks.yaml 没被弄坏
-          python -c "import yaml; yaml.safe_load(open('tasks.yaml'))"
+          # 修正：使用 ruamel.yaml 进行解析校验
+          python -c "from ruamel.yaml import YAML; YAML().load(open('task_center/tasks.yaml'))"
