@@ -2,7 +2,13 @@ name: Task Logic & PR Check
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: 
+        - main
+        - develop
+        
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-logic:
