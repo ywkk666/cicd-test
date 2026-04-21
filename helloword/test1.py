@@ -3,8 +3,14 @@ from ruamel.yaml import YAML
 
 def run_task_logic():
     # 1. 自动定位 tasks.yaml 的路径（假设它在 test1.py 的上一级目录的上一级）
+    # 1. 获取当前脚本所在文件夹 (helloworld)
     base_path = os.path.dirname(os.path.abspath(__file__))
-    yaml_path = os.path.join(os.path.dirname(base_path), "tasks.yaml")
+
+    # 2. 获取项目根目录 (helloworld 的上一级)
+    root_path = os.path.dirname(base_path)
+
+    # 3. 组合最终路径：根目录 -> task_center -> tasks.yaml
+    yaml_path = os.path.join(root_path, "task_center", "tasks.yaml")
     
     print(f"🚀 正在启动任务执行器...")
     print(f"📂 正在读取配置文件: {yaml_path}")
