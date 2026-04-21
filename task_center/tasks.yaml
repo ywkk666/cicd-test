@@ -1,129 +1,49 @@
 project: LinkMate-DX
 repo: ywkk666/cicd-test
 issues:
-- title: 【后端】实现 YAML 自动校验逻辑
-  assignee: ywkk666
-  labels:
-  - backend
-  - validation
-  body: 编写一个 Python 函数，在同步前检查 tasks.yaml 的语法规范。
-  status: done
-  issue_number: 18
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/19
-- title: 【脚本】实现自动化运行后的分支清理提醒
-  assignee: ywkk666
-  labels:
-  - enhancement
-  - script
-  body: 在脚本执行完毕后，增加一个逻辑：检测本地已合并的分支并提醒。
-  status: done
-  issue_number: 20
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/21
-- title: 【监控】集成 GitHub Actions 自动检查任务进度
-  assignee: ywkk666
-  labels:
-  - automation
-  - devops
-  body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: done
-  issue_number: 22
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/23
-- title: 【监控2】集成 GitHub Actions 自动检查任务进度
-  assignee: ywkk666
-  labels:
-  - automation
-  - devops
-  body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: done
-  issue_number: 24
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/25
-- title: 【监控3】测试
-  assignee: ywkk666
-  labels:
-  - automation
-  - devops
-  body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: in_progress
-  issue_number: 26
-  branch_name: feat/task-26
-  pr_url: https://github.com/ywkk666/cicd-test/pull/27
-- title: 【监控4】测试
-  assignee: ywkk666
-  labels:
-  - automation
-  - devops
-  body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: done
-  issue_number: 28
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/29
-- title: 【监控5】测试
-  assignee: ywkk666
-  labels:
-  - automation
-  - devops
-  body: 编写一个简单的 workflow，每当 tasks.yaml 更新时，自动触发脚本运行或发送通知。
-  status: in_progress
-  issue_number: 34
-  branch_name: feat/task-34
-  pr_url: https://github.com/ywkk666/cicd-test/pull/35
-- title: 【监控6】测试
-  assignee: ywkk666
-  reviewer: null
-  labels:
-  - automation
-  - devops
-  body: 测试担当者
-  status: done
-  issue_number: 36
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/37
-- title: 【监控7】测试
-  assignee: ywkk666
-  reviewer: null
-  labels:
-  - automation
-  - devops
-  body: 测试担当者111
-  status: done
-  issue_number: 38
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/39
-
 - id: 101
   title: 测试01
   assignee: ywkk666
-  reviewer: 
+  reviewer: null
   base_branch: develop
-  milestone: "v1.0-beta"
-  depends_on: 
+  milestone: v1.0-beta
+  depends_on: null
   project_name: cicd-test-project
   labels:
   - automation
   - devops
   body: 测试issue标签01
-  status: 
-  issue_number: 
-  branch_name: 
-  pr_url: 
-
+  status: done
+  issue_number: 75
+  branch_name: ''
+  pr_url: https://github.com/ywkk666/cicd-test/pull/76
 - id: 102
   title: 测试02
   assignee: ywkk666
-  reviewer: 
+  reviewer: null
   base_branch: main
-  milestone: "v1.1-beta"
+  milestone: v1.0-beta
   depends_on: 101
   project_name: cicd-test-project
   labels:
-  - automation
-  - devops
+  - bug
   body: 测试issue标签02
-  status: 
-  issue_number: 
-  branch_name: 
-  pr_url: 
+  status: processing
+  issue_number: 77
+  branch_name: feat/task-77
+  pr_url: https://github.com/ywkk666/cicd-test/pull/78
+- id: 103
+  title: 测试03
+  assignee: ywkk666
+  reviewer: null
+  base_branch: main
+  milestone: v1.0-beta
+  depends_on: null
+  project_name: cicd-test-project
+  labels:
+  - bug
+  body: 测试issue标签03
+  status: processing
+  issue_number: 79
+  branch_name: feat/task-79
+  pr_url: https://github.com/ywkk666/cicd-test/pull/80

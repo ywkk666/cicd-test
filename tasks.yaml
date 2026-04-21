@@ -1,0 +1,33 @@
+project: LinkMate-DX
+repo: ywkk666/cicd-test
+issues:
+  - id: 104
+    title: 新任务01
+    assignee: ywkk666
+    reviewer: .nan
+    base_branch: main
+    milestone: v1.0-beta
+    depends_on: .nan
+    project_name: cicd-test-project
+    labels:
+      - bug
+    body: 测试04
+    status: .nan
+    issue_number: .nan
+    branch_name: .nan
+    pr_url: .nan
+  - id: 105
+    title: 新任务05
+    assignee: ywkk666
+    reviewer: .nan
+    base_branch: develop
+    milestone: v1.0-beta
+    depends_on: .nan
+    project_name: cicd-test-project
+    labels:
+      - bug
+    body: 测试04
+    status: .nan
+    issue_number: .nan
+    branch_name: .nan
+    pr_url: .nan
