@@ -17,7 +17,7 @@ jobs:
 
       - name: 安装 test1.py 所需的依赖
         run: |
-          pip install pandas ruamel.yaml pytest
+          pip install pandas ruamel.yaml pytest flake8
           # 如果 test1.py 还有其他依赖，记得写在这里
 
       - name: 静态检查 - 扫描 test1.py
