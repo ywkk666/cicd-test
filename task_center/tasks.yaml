@@ -88,7 +88,21 @@ issues:
   labels:
   - bug
   body: cicd测试01
-  status: null
-  issue_number: null
-  branch_name: null
-  pr_url: null
+  status: done
+  issue_number: 88
+  branch_name: ''
+  pr_url: https://github.com/ywkk666/cicd-test/pull/89
+- id: 107
+  title: cicd测试02
+  assignee: ywkk666
+  reviewer: null
+  base_branch: main
+  milestone: v1.0-beta
+  depends_on: null
+  project_name: cicd-test-project
+  labels: []
+  body: cicd测试02
+  status: processing
+  issue_number: 90
+  branch_name: feat/task-90
+  pr_url: https://github.com/ywkk666/cicd-test/pull/91
