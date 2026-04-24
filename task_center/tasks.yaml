@@ -103,6 +103,6 @@ issues:
   labels: []
   body: cicd测试02
   status: processing
-  issue_number: 90
-  branch_name: feat/task-90
-  pr_url: https://github.com/ywkk666/cicd-test/pull/91
+  issue_number: 92
+  branch_name: feat/task-92
+  pr_url: https://github.com/ywkk666/cicd-test/pull/93
