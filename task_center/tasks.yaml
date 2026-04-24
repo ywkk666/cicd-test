@@ -95,6 +95,7 @@ issues:
 - id: 107
   title: cicd测试02
   assignee: ywkk666
+  task_type: test
   reviewer: null
   base_branch: main
   milestone: v1.0-beta
