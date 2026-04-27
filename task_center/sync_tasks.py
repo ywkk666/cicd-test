@@ -145,9 +145,12 @@ def sync_all_in_one():
         # 【提取新增的 YAML 字段】
         local_id = task.get("id")
         dep_id = task.get("depends_on")
+        task_type = task.get("task_type")
         labels_list = task.get("labels", [])
+        labels_list = list(set(labels_list + [task_type]))
         milestone_name = task.get("milestone")
         yml_project_name = task.get("project_name") # 提取了看板名称，暂留扩展接口
+        
 
         # 分支校验
         ALLOWED_BASES = ["main", "develop", "test"]
@@ -299,22 +302,11 @@ def sync_all_in_one():
                 issue.create_comment(f"🚀 本任务是 #{parent_issue_num} 的后续步骤，前置任务已确认完成。")
                 print(f"    ✅ 已在 #{issue_num} 中建立对已完成任务 #{parent_issue_num} 的引用")
 
-        # 2. 分支创建 (非切换模式)
-        print(f"  🚀 步骤 2: 基于 [{target_base}] 创建本地分支 [{new_branch}]...", end=" ", flush=True)
-        
-        # A. 先拉取远程最新的基准分支信息，确保 origin/{target_base} 是最新的
+        # 2. 分支创建
+        print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
         run_git(f"git fetch origin {target_base}")
-        
-        # B. 核心改进：使用 git branch -f (Force) 
-        # 语法：git branch -f <新分支名> <起点>
-        # 这会在后台创建/重置分支，但你的 HEAD 不会动，本地文件也不会变
-        success, err = run_git(f"git branch -f {new_branch} origin/{target_base}")
-        
-        if success:
-            print("✅ (本地引用已建立，未切换分支)")
-        else:
-            print(f"❌ (原因: {err})")
-            continue
+        run_git(f"git checkout -b {new_branch} origin/{target_base}")
+        print("✅")
         
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
@@ -396,10 +388,24 @@ def sync_all_in_one():
     # --- 阶段 3: 数据持久化 ---
     print(f"\n[阶段 3: 指挥中心状态存档]")
     if updated:
+        # 确保在 main 分支上更新 tasks.yaml
+        os.chdir(PROJECT_ROOT)
+        print("  🔄 切换到 main 分支进行状态更新...", end=" ")
+        run_git("git checkout main")
+        run_git("git pull origin main")
+        print("✅")
+        
         os.chdir(BASE_DIR)
         with open(YAML_FILE, "w", encoding="utf-8") as f:
             yaml.dump(data, f, allow_unicode=True, sort_keys=False)
         print(f"  💾 状态更新: {YAML_FILE.name} 已同步。")
+        
+        # 提交并推送更改到 main 分支
+        os.chdir(PROJECT_ROOT)
+        run_git('git add task_center/tasks.yaml')
+        run_git('git commit -m "chore: 更新任务状态"')
+        run_git('git push origin main')
+        print("  📤 状态更新已推送到 main 分支。")
     else:
         print("  😴 无状态变更。")
     
