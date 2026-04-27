@@ -19,48 +19,27 @@ concurrency:
 jobs:
   # 1. 任务类型检测
   detect-task-type:
-    runs-on: ubuntu-latest
-    outputs:
-      task_type: ${{ steps.detect.outputs.task_type }}
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: 安装基础依赖
-        run: pip install ruamel.yaml
-      
-      - name: 检测任务类型
-        id: detect
-        run: |
-          # 使用 EOF 语法避免引号嵌套冲突，并直接写入 GITHUB_OUTPUT
-          python - <<EOF
-          import os
-          from ruamel.yaml import YAML
+      runs-on: ubuntu-latest
+      outputs:
+        task_type: ${{ steps.detect.outputs.task_type }}
+      steps:
+        - name: 识别任务模式
+          id: detect
+          run: |
+            # 获取 PR 的标签列表 (如果是 push 事件，此变量将为空字符串)
+            LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+            echo "Current Labels: $LABELS"
 
-          yaml = YAML()
-          task_type = 'dev' # 默认值
-
-          try:
-              # 尝试读取配置文件
-              with open('task_center/tasks.yaml', 'r', encoding='utf-8') as f:
-                  data = yaml.load(f)
-              
-              # 检查是否存在 issues 列表并遍历
-              if data and 'issues' in data:
-                  for issue in data['issues']:
-                      # 只要有一个任务标记为 test，则整个流水线切为测试模式
-                      if issue.get('task_type') == 'test':
-                          task_type = 'test'
-                          break
-          except Exception as e:
-              print(f"Warning: Could not read tasks.yaml, defaulting to 'dev'. Error: {e}")
-
-          # 将结果写入 GitHub Actions 的输出环境变量
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"task_type={task_type}\n")
-          
-          print(f"Detected task_type: {task_type}")
-          EOF
-
+            # 逻辑判断：
+            # 1. 如果标签中包含 "test"，判定为 test 模式
+            # 2. 其他情况（包含没有标签或标签为 dev），判定为 dev 模式
+            if echo "$LABELS" | grep -q "test"; then
+              echo "task_type=test" >> $GITHUB_OUTPUT
+              echo "🎯 Detected Mode: TEST"
+            else
+              echo "task_type=dev" >> $GITHUB_OUTPUT
+              echo "🎯 Detected Mode: DEV (Default)"
+            fi
   # 2. 开发类型流水线
   dev-pipeline:
     needs: detect-task-type
