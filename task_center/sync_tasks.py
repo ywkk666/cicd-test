@@ -305,22 +305,31 @@ def sync_all_in_one():
                 issue.create_comment(f"🚀 本任务是 #{parent_issue_num} 的后续步骤，前置任务已确认完成。")
                 print(f"    ✅ 已在 #{issue_num} 中建立对已完成任务 #{parent_issue_num} 的引用")
 
-        # --- 步骤 2: 分支创建（健壮增强版） ---
-        import time
-
-        # 🚀 步骤 2 优化版
+        # 2. 分支创建
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
-        run_git(f"git fetch origin {target_base}")
-        # 使用 -B 强制重置
-        res = run_git(f"git checkout -B {new_branch} origin/{target_base}")
 
-        # 只要退出码是 0，管它 stderr 输出了什么（比如 track origin 那句话），都算成功
-        if (hasattr(res, 'returncode') and res.returncode == 0) or (isinstance(res, tuple) and res[0] == 0):
-            time.sleep(0.5) # 给 Windows 文件系统一点反应时间
+        # 执行切换
+        result = run_git(f"git checkout -B {new_branch} origin/{target_base}")
+
+        # 1. 检查退出码 (0 表示系统认为命令成功执行)
+        exit_code = result.returncode if hasattr(result, 'returncode') else result[0]
+
+        # 2. 物理检查 (确认当前脚下踩的分支到底对不对)
+        verify = run_git("git rev-parse --abbrev-ref HEAD")
+        current_branch = (verify.stdout if hasattr(verify, 'stdout') else verify[1]).strip()
+
+        if exit_code == 0 and current_branch == new_branch:
             print("✅")
         else:
-            print(f"❌ (真正失败)")
-
+            # 只有在真正失败时才打印原因
+            stderr = (result.stderr if hasattr(result, 'stderr') else result[1]).strip()
+            # 特殊处理：如果 stderr 包含 'set up to track'，这其实是 Git 的废话，可以忽略
+            if "set up to track" in stderr and current_branch == new_branch:
+                print("✅")
+            else:
+                print(f"❌ (原因: {stderr if stderr else '分支校验不匹配'})")
+                continue
+        
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
         run_git(f'git commit --allow-empty -m "feat({CODE_DIR_NAME}): 开启任务 #{issue_num} 分支"')
