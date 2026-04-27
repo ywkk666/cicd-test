@@ -307,9 +307,23 @@ def sync_all_in_one():
 
         # 2. 分支创建
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
+        
+        # 1. 更新远程索引
         run_git(f"git fetch origin {target_base}")
-        run_git(f"git checkout -b {new_branch} origin/{target_base}")
-        print("✅")
+        
+        # 2. 执行创建分支
+        # 建议直接检查返回结果，如果是元组，根据你的 run_git 实现来解构
+        result = run_git(f"git checkout -B {new_branch} origin/{target_base}")
+        
+        # 兼容性处理：判断是对象还是元组
+        exit_code = result.returncode if hasattr(result, 'returncode') else result[0]
+
+        if exit_code != 0:
+            stderr = result.stderr if hasattr(result, 'stderr') else result[1]
+            print(f"❌ (原因: {stderr})")
+            continue # 跳过当前任务处理下一个
+        else:
+            print("✅")
         
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
