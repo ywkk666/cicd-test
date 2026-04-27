@@ -13,10 +13,10 @@ issues:
   labels:
   - bug
   body: cicd测试01
-  status: 
-  issue_number: 
-  branch_name: 
-  pr_url: 
+  status: processing
+  issue_number: 136
+  branch_name: feat/task-136-test
+  pr_url: https://github.com/ywkk666/cicd-test/pull/137
 - id: 102
   title: cicd测试02
   task_type: dev
