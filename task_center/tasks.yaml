@@ -123,10 +123,10 @@ issues:
   labels:
   - bug
   body: cicd测试03
-  status: null
-  issue_number: null
-  branch_name: null
-  pr_url: null
+  status: processing
+  issue_number: 111
+  branch_name: feat/task-111
+  pr_url: https://github.com/ywkk666/cicd-test/pull/112
 - id: 109
   title: cicd测试04
   task_type: dev
@@ -139,7 +139,7 @@ issues:
   labels:
   - bug
   body: cicd测试04
-  status: null
-  issue_number: null
-  branch_name: null
-  pr_url: null
+  status: processing
+  issue_number: 113
+  branch_name: feat/task-113
+  pr_url: https://github.com/ywkk666/cicd-test/pull/114
