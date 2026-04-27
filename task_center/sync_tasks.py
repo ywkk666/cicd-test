@@ -299,23 +299,22 @@ def sync_all_in_one():
                 issue.create_comment(f"🚀 本任务是 #{parent_issue_num} 的后续步骤，前置任务已确认完成。")
                 print(f"    ✅ 已在 #{issue_num} 中建立对已完成任务 #{parent_issue_num} 的引用")
 
-        # 2. 分支创建
-        print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
+        # 2. 分支创建 (非切换模式)
+        print(f"  🚀 步骤 2: 基于 [{target_base}] 创建本地分支 [{new_branch}]...", end=" ", flush=True)
         
-        # A. 确保远程最新的 base 分支信息已拉取
+        # A. 先拉取远程最新的基准分支信息，确保 origin/{target_base} 是最新的
         run_git(f"git fetch origin {target_base}")
         
-        # B. 核心改进：使用 -B (大写) 强制创建并重置
-        # 即使本地已有同名分支，-B 也会强行把它掰到 origin/{target_base} 的位置
-        success, err = run_git(f"git checkout -B {new_branch} origin/{target_base}")
+        # B. 核心改进：使用 git branch -f (Force) 
+        # 语法：git branch -f <新分支名> <起点>
+        # 这会在后台创建/重置分支，但你的 HEAD 不会动，本地文件也不会变
+        success, err = run_git(f"git branch -f {new_branch} origin/{target_base}")
         
         if success:
-            # C. 显式设置上游，防止 Git 找不到北
-            run_git(f"git branch --set-upstream-to=origin/{target_base} {new_branch}")
-            print("✅")
+            print("✅ (本地引用已建立，未切换分支)")
         else:
             print(f"❌ (原因: {err})")
-            continue # 跳过当前任务，处理下一个
+            continue
         
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
