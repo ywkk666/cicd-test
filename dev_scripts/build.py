@@ -18,3 +18,5 @@ if __name__ == "__main__":
     print(f"构建结果: {'成功' if result else '失败'}")
     # 故意退出码为1，表示失败
     exit(1)
+
+qqwwee
