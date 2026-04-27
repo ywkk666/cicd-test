@@ -9,7 +9,7 @@ yaml_engine.indent(mapping=2, sequence=4, offset=2)
 
 # 定义字段顺序
 FIELD_ORDER = [
-    'id', 'title', 'assignee', 'reviewer', 'base_branch',
+    'id', 'title', 'task_type','assignee', 'reviewer', 'base_branch',
     'milestone', 'depends_on', 'project_name', 'labels',
     'body', 'status', 'issue_number', 'branch_name', 'pr_url'
 ]
