@@ -26,32 +26,24 @@ jobs:
         - name: 识别模式（多标签兼容版）
           id: detect
           run: |
-            # 1. 安全地获取 JSON 格式的标签列表
-            RAW_LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
-            
-            # 2. 使用 jq 将数组转为普通文本，每行一个标签
-            # 如果 RAW_LABELS 是空（例如 push 事件），则输出为空字符串
-            CLEAN_LABELS=$(echo "$RAW_LABELS" | jq -r '.[]' 2>/dev/null || echo "")
-            
-            echo "Captured Labels:"
-            echo "$CLEAN_LABELS"
+                    # 获取当前分支名
+                    # 在 PR 触发时使用 head_ref，在 Push 触发时使用 ref_name
+                    BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+                    echo "检测到分支: $BRANCH_NAME"
 
-            # 3. 优先级逻辑：
-            # 只要标签列表中包含 'test'，就判定为 test
-            if echo "$CLEAN_LABELS" | grep -iqw "test"; then
-              echo "task_type=test" >> $GITHUB_OUTPUT
-              echo "🎯 Final Decision: [TEST] Pipeline"
-              
-            # 如果不含 test 但包含 'dev'，判定为 dev
-            elif echo "$CLEAN_LABELS" | grep -iqw "dev"; then
-              echo "task_type=dev" >> $GITHUB_OUTPUT
-              echo "🎯 Final Decision: [DEV] Pipeline"
-              
-            # 默认兜底：如果没有相关标签，默认为 dev
-            else
-              echo "task_type=dev" >> $GITHUB_OUTPUT
-              echo "🎯 Final Decision: [DEV] (Default/Fallback)"
-            fi
+                    # 使用正则表达式或通配符判断后缀
+                    if [[ "$BRANCH_NAME" == *"-test" ]]; then
+                      echo "task_type=test" >> $GITHUB_OUTPUT
+                      echo "🎯 匹配结果: [TEST] 模式"
+                    elif [[ "$BRANCH_NAME" == *"-dev" ]]; then
+                      echo "task_type=dev" >> $GITHUB_OUTPUT
+                      echo "🎯 匹配结果: [DEV] 模式"
+                    else
+                      # 如果分支名不符合规范，默认走 dev 以保证流程不中断
+                      echo "task_type=dev" >> $GITHUB_OUTPUT
+                      echo "🎯 匹配结果: [DEFAULT] 模式"
+                    fi
+                    
   # 2. 开发类型流水线
   dev-pipeline:
     needs: detect-task-type

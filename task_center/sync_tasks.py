@@ -134,13 +134,15 @@ def sync_all_in_one():
     # =================================================================
 
     for idx, task in enumerate(issues_list, 1):
-        title = task.get("title", "未命名任务")
+        
         issue_num = task.get("issue_number")
         branch_name = task.get("branch_name")
         pr_url = task.get("pr_url")
         target_user = task.get("assignee")
         reviewer_user = task.get("reviewer")
         target_base = task.get("base_branch", DEFAULT_BASE_BRANCH)
+        title = task.get("title", "未命名任务")
+        
         
         # 【提取新增的 YAML 字段】
         local_id = task.get("id")
@@ -150,6 +152,7 @@ def sync_all_in_one():
         labels_list = list(set(labels_list + [task_type]))
         milestone_name = task.get("milestone")
         yml_project_name = task.get("project_name") # 提取了看板名称，暂留扩展接口
+        title = f"{title} [{task_type}]"
         
 
         # 分支校验
@@ -270,7 +273,7 @@ def sync_all_in_one():
 
             issue = repo.create_issue(**issue_kwargs)
             issue_num = issue.number
-            new_branch = f"feat/task-{issue_num}"
+            new_branch = f"feat/task-{issue_num}-{task_type}"
             print(f"✅ #{issue_num}")
 
             # 【新增 5】: 创建成功后，立刻将自己的编号注册到映射表中！供同批次后面的任务使用
