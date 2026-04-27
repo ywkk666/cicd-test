@@ -49,6 +49,7 @@ issues:
   pr_url: https://github.com/ywkk666/cicd-test/pull/80
 - id: 104
   title: 新任务01
+  task_type: null
   assignee: ywkk666
   reviewer: null
   base_branch: main
@@ -64,6 +65,7 @@ issues:
   pr_url: https://github.com/ywkk666/cicd-test/pull/83
 - id: 105
   title: 新任务05
+  task_type: null
   assignee: ywkk666
   reviewer: null
   base_branch: develop
@@ -79,6 +81,7 @@ issues:
   pr_url: https://github.com/ywkk666/cicd-test/pull/85
 - id: 106
   title: cicd测试01
+  task_type: null
   assignee: ywkk666
   reviewer: null
   base_branch: main
@@ -94,16 +97,49 @@ issues:
   pr_url: https://github.com/ywkk666/cicd-test/pull/89
 - id: 107
   title: cicd测试02
-  assignee: ywkk666
   task_type: test
+  assignee: ywkk666
   reviewer: null
   base_branch: main
   milestone: v1.0-beta
   depends_on: null
   project_name: cicd-test-project
-  labels: []
+  labels:
+  - bug
   body: cicd测试02
+  status: done
+  issue_number: 90
+  branch_name: ''
+  pr_url: https://github.com/ywkk666/cicd-test/pull/91
+- id: 108
+  title: cicd测试03
+  task_type: test
+  assignee: ywkk666
+  reviewer: null
+  base_branch: main
+  milestone: v1.0-beta
+  depends_on: null
+  project_name: cicd-test-project
+  labels:
+  - bug
+  body: cicd测试03
   status: processing
-  issue_number: 92
-  branch_name: feat/task-92
-  pr_url: https://github.com/ywkk666/cicd-test/pull/93
+  issue_number: 97
+  branch_name: feat/task-97
+  pr_url: https://github.com/ywkk666/cicd-test/pull/98
+- id: 109
+  title: cicd测试04
+  task_type: dev
+  assignee: ywkk666
+  reviewer: null
+  base_branch: develop
+  milestone: v1.0-beta
+  depends_on: null
+  project_name: cicd-test-project
+  labels:
+  - bug
+  body: cicd测试04
+  status: null
+  issue_number: null
+  branch_name: null
+  pr_url: null

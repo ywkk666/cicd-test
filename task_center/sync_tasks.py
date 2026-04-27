@@ -301,9 +301,21 @@ def sync_all_in_one():
 
         # 2. 分支创建
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
+        
+        # A. 确保远程最新的 base 分支信息已拉取
         run_git(f"git fetch origin {target_base}")
-        run_git(f"git checkout -b {new_branch} origin/{target_base}")
-        print("✅")
+        
+        # B. 核心改进：使用 -B (大写) 强制创建并重置
+        # 即使本地已有同名分支，-B 也会强行把它掰到 origin/{target_base} 的位置
+        success, err = run_git(f"git checkout -B {new_branch} origin/{target_base}")
+        
+        if success:
+            # C. 显式设置上游，防止 Git 找不到北
+            run_git(f"git branch --set-upstream-to=origin/{target_base} {new_branch}")
+            print("✅")
+        else:
+            print(f"❌ (原因: {err})")
+            continue # 跳过当前任务，处理下一个
         
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
