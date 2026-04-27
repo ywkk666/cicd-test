@@ -124,9 +124,9 @@ issues:
   - bug
   body: cicd测试03
   status: processing
-  issue_number: 115
-  branch_name: feat/task-115
-  pr_url: https://github.com/ywkk666/cicd-test/pull/116
+  issue_number: 119
+  branch_name: feat/task-119-test
+  pr_url: https://github.com/ywkk666/cicd-test/pull/120
 - id: 109
   title: cicd测试04
   task_type: dev
@@ -140,6 +140,6 @@ issues:
   - bug
   body: cicd测试04
   status: processing
-  issue_number: 117
-  branch_name: feat/task-117
-  pr_url: https://github.com/ywkk666/cicd-test/pull/118
+  issue_number: 121
+  branch_name: feat/task-121-dev
+  pr_url: https://github.com/ywkk666/cicd-test/pull/122
