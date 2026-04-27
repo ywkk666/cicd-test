@@ -305,26 +305,22 @@ def sync_all_in_one():
                 issue.create_comment(f"🚀 本任务是 #{parent_issue_num} 的后续步骤，前置任务已确认完成。")
                 print(f"    ✅ 已在 #{issue_num} 中建立对已完成任务 #{parent_issue_num} 的引用")
 
-        # 2. 分支创建
-        print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
-        
-        # 1. 更新远程索引
-        run_git(f"git fetch origin {target_base}")
-        
-        # 2. 执行创建分支
-        # 建议直接检查返回结果，如果是元组，根据你的 run_git 实现来解构
-        result = run_git(f"git checkout -B {new_branch} origin/{target_base}")
-        
-        # 兼容性处理：判断是对象还是元组
-        exit_code = result.returncode if hasattr(result, 'returncode') else result[0]
+        # --- 步骤 2: 分支创建（健壮增强版） ---
+        import time
 
-        if exit_code != 0:
-            stderr = result.stderr if hasattr(result, 'stderr') else result[1]
-            print(f"❌ (原因: {stderr})")
-            continue # 跳过当前任务处理下一个
-        else:
+        # 🚀 步骤 2 优化版
+        print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
+        run_git(f"git fetch origin {target_base}")
+        # 使用 -B 强制重置
+        res = run_git(f"git checkout -B {new_branch} origin/{target_base}")
+
+        # 只要退出码是 0，管它 stderr 输出了什么（比如 track origin 那句话），都算成功
+        if (hasattr(res, 'returncode') and res.returncode == 0) or (isinstance(res, tuple) and res[0] == 0):
+            time.sleep(0.5) # 给 Windows 文件系统一点反应时间
             print("✅")
-        
+        else:
+            print(f"❌ (真正失败)")
+
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
         run_git(f'git commit --allow-empty -m "feat({CODE_DIR_NAME}): 开启任务 #{issue_num} 分支"')
