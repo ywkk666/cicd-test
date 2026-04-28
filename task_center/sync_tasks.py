@@ -30,37 +30,24 @@ ALLOWED_BASES = ["main", "develop", "test"] # 允许的合法分支白名单
 
 def run_git(command):
     try:
-        # 强制指定编码，防止 Windows 下处理中文路径或 Excel 路径报错
-        result = subprocess.run(
-            command, 
-            shell=True, 
-            capture_output=True, 
-            text=True, 
-            encoding="utf-8"
-        )
-        # 返回 3 个值：是否成功, 标准输出, 错误输出
-        return (result.returncode == 0), result.stdout.strip(), result.stderr.strip()
-    except Exception as e:
-        # 发生系统级错误时也返回 3 个值
-        return False, "", str(e)
-
-def get_current_branch():
-    success, stdout, _ = run_git("git rev-parse --abbrev-ref HEAD")
-    if success and stdout:
-        return stdout.strip()
-    return None
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, encoding="utf-8")
+        return True, result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        return False, e.stderr.strip()
 
 def auto_commit_local_changes():
-    current_branch = get_current_branch() or DEFAULT_BASE_BRANCH
-    print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到当前分支 [{current_branch}]...")
-
-    # 检查是否有东西需要提交
+    print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到 main...")
+    
+    # 1. 确保在 main 分支（为了安全，只在 main 提交你的 Excel 修改）
+    run_git("git checkout main")
+    
+    # 2. 检查是否有东西需要提交
     success, status_out, _ = run_git("git status --porcelain")
     if not status_out:
         print("  ✅ 没有检测到改动，无需保存。")
         return
 
-    # 自动提交所有改动 (包含 Excel 和 YAML)
+    # 3. 自动提交所有改动 (包含 Excel 和 YAML)
     print("  📝 检测到改动，正在建立本地存档...", end=" ")
     run_git("git add .")
     # 加上 [skip ci] 是为了防止如果你有其他自动化流程被这个 commit 触发
@@ -122,28 +109,22 @@ def sync_all_in_one():
     print(f"📦 目标仓库: {REPO_NAME}")
     print(f"✅ 鉴权状态: Token 已加载 ({ACCESS_TOKEN[:7]}***)")
     
-
     # --- 阶段 0: 环境同步 ---
     print(f"\n[阶段 0: 基础设施对齐]")
     os.chdir(PROJECT_ROOT)
-    working_branch = get_current_branch() or DEFAULT_BASE_BRANCH
-
+    
     steps = [
-        (f"切换至工作分支 ({working_branch})", f"git checkout {working_branch}"),
-        (f"拉取云端最新代码 (pull {working_branch})", f"git pull origin {working_branch}")
+        ("切换至主分支 (main)", "git checkout main"),
+        ("拉取云端最新代码 (pull)", "git pull origin main")
     ]
     
     for i, (desc, cmd) in enumerate(steps, 1):
         print(f"  ({i}/2) {desc}...", end=" ", flush=True)
-        
-        # 💡 这里改成了接收 3 个值
-        success, stdout, stderr = run_git(cmd) 
-        
+        success, _ = run_git(cmd)
         if success:
             print("✅")
         else:
-            # 💡 这样报错时你能看到具体的 Git 错误信息
-            print(f"❌ (原因: {stderr})")
+            print("❌")
             return
 
     # --- 初始化 GitHub 连接 ---
@@ -347,16 +328,20 @@ def sync_all_in_one():
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
 
         # 执行切换
-        success, _, stderr = run_git(f"git checkout -B {new_branch} origin/{target_base}")
+        result = run_git(f"git checkout -B {new_branch} origin/{target_base}")
 
-        # 物理检查 (确认当前脚下踩的分支到底对不对)
-        current_branch = get_current_branch() or ""
+        # 1. 检查退出码 (0 表示系统认为命令成功执行)
+        exit_code = result.returncode if hasattr(result, 'returncode') else result[0]
 
-        if success and current_branch == new_branch:
+        # 2. 物理检查 (确认当前脚下踩的分支到底对不对)
+        verify = run_git("git rev-parse --abbrev-ref HEAD")
+        current_branch = (verify.stdout if hasattr(verify, 'stdout') else verify[1]).strip()
+
+        if exit_code == 0 and current_branch == new_branch:
             print("✅")
         else:
             # 只有在真正失败时才打印原因
-            stderr = stderr.strip()
+            stderr = (result.stderr if hasattr(result, 'stderr') else result[1]).strip()
             # 特殊处理：如果 stderr 包含 'set up to track'，这其实是 Git 的废话，可以忽略
             if "set up to track" in stderr and current_branch == new_branch:
                 print("✅")
@@ -372,7 +357,7 @@ def sync_all_in_one():
         # 4. 推送
         print(f"  🚀 步骤 4: 推送分支至云端仓库...", end=" ", flush=True)
         remote_url = f"https://{ACCESS_TOKEN}@github.com/{REPO_NAME}.git"
-        success, _, err = run_git(f"git push -u {remote_url} {new_branch}")
+        success, err = run_git(f"git push -u {remote_url} {new_branch}")
         run_git(f"git remote set-url origin https://github.com/{REPO_NAME}.git")
         if success: print("✅")
         else:
@@ -444,11 +429,11 @@ def sync_all_in_one():
     # --- 阶段 3: 数据持久化 ---
     print(f"\n[阶段 3: 指挥中心状态存档]")
     if updated:
-        # 确保在工作分支上更新 tasks.yaml
+        # 确保在 main 分支上更新 tasks.yaml
         os.chdir(PROJECT_ROOT)
-        print(f"  🔄 切换到 {working_branch} 分支进行状态更新...", end=" ")
-        run_git(f"git checkout {working_branch}")
-        run_git(f"git pull origin {working_branch}")
+        print("  🔄 切换到 main 分支进行状态更新...", end=" ")
+        run_git("git checkout main")
+        run_git("git pull origin main")
         print("✅")
         
         os.chdir(BASE_DIR)
@@ -456,18 +441,18 @@ def sync_all_in_one():
             yaml.dump(data, f, allow_unicode=True, sort_keys=False)
         print(f"  💾 状态更新: {YAML_FILE.name} 已同步。")
         
-        # 提交并推送更改到工作分支
+        # 提交并推送更改到 main 分支
         os.chdir(PROJECT_ROOT)
         run_git('git add task_center/tasks.yaml')
         run_git('git commit -m "chore: 更新任务状态"')
-        run_git(f'git push origin {working_branch}')
-        print(f"  📤 状态更新已推送到 {working_branch} 分支。")
+        run_git('git push origin main')
+        print("  📤 状态更新已推送到 main 分支。")
     else:
         print("  😴 无状态变更。")
     
     # 归位
     os.chdir(PROJECT_ROOT)
-    run_git(f"git checkout {working_branch}")
+    run_git("git checkout main")
     print(f"\n{'='*60}\n🎉 自动化流程全部执行完毕！\n{'='*60}")
 
 if __name__ == "__main__":

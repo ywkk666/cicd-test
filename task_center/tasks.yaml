@@ -2,86 +2,8 @@ project: LinkMate-DX
 repo: ywkk666/cicd-test
 issues:
 - id: 101
-  title: 测试01
-  assignee: ywkk666
-  reviewer: null
-  base_branch: develop
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - automation
-  - devops
-  body: 测试issue标签01
-  status: done
-  issue_number: 75
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/76
-- id: 102
-  title: 测试02
-  assignee: ywkk666
-  reviewer: null
-  base_branch: main
-  milestone: v1.0-beta
-  depends_on: 101
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: 测试issue标签02
-  status: processing
-  issue_number: 77
-  branch_name: feat/task-77
-  pr_url: https://github.com/ywkk666/cicd-test/pull/78
-- id: 103
-  title: 测试03
-  assignee: ywkk666
-  reviewer: null
-  base_branch: main
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: 测试issue标签03
-  status: processing
-  issue_number: 79
-  branch_name: feat/task-79
-  pr_url: https://github.com/ywkk666/cicd-test/pull/80
-- id: 104
-  title: 新任务01
-  task_type: null
-  assignee: ywkk666
-  reviewer: null
-  base_branch: main
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: 测试04
-  status: processing
-  issue_number: 82
-  branch_name: feat/task-82
-  pr_url: https://github.com/ywkk666/cicd-test/pull/83
-- id: 105
-  title: 新任务05
-  task_type: null
-  assignee: ywkk666
-  reviewer: null
-  base_branch: develop
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: 测试04
-  status: processing
-  issue_number: 84
-  branch_name: feat/task-84
-  pr_url: https://github.com/ywkk666/cicd-test/pull/85
-- id: 106
   title: cicd测试01
-  task_type: null
+  task_type: test
   assignee: ywkk666
   reviewer: null
   base_branch: main
@@ -91,44 +13,12 @@ issues:
   labels:
   - bug
   body: cicd测试01
-  status: done
-  issue_number: 88
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/89
-- id: 107
-  title: cicd测试02
-  task_type: test
-  assignee: ywkk666
-  reviewer: null
-  base_branch: main
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: cicd测试02
-  status: done
-  issue_number: 90
-  branch_name: ''
-  pr_url: https://github.com/ywkk666/cicd-test/pull/91
-- id: 108
-  title: cicd测试03
-  task_type: test
-  assignee: ywkk666
-  reviewer: null
-  base_branch: main
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: cicd测试03
   status: processing
-  issue_number: 94
-  branch_name: feat/task-94
-  pr_url: https://github.com/ywkk666/cicd-test/pull/95
-- id: 109
-  title: cicd测试04
+  issue_number: 141
+  branch_name: feat/task-141-test
+  pr_url: https://github.com/ywkk666/cicd-test/pull/142
+- id: 102
+  title: cicd测试02
   task_type: dev
   assignee: ywkk666
   reviewer: null
@@ -138,7 +28,7 @@ issues:
   project_name: cicd-test-project
   labels:
   - bug
-  body: cicd测试04
+  body: cicd测试02
   status: null
   issue_number: null
   branch_name: null
