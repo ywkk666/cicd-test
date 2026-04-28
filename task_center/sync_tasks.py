@@ -27,6 +27,9 @@ if not ACCESS_TOKEN:
 
 DEFAULT_BASE_BRANCH = "develop"    # 默认合并目标分支
 ALLOWED_BASES = ["main", "develop", "test"] # 允许的合法分支白名单
+CONTROL_BRANCH = "main"  # 任务中心分支：tasks.yaml 只在该分支维护
+CODE_SOURCE_BRANCH = "main"  # 从哪个分支同步业务代码目录到任务分支
+CODE_SYNC_DIRS = ["dev_scripts", "test_scripts"]  # 仅同步这些目录
 # ==========================================
 
 def run_git(command):
@@ -42,11 +45,15 @@ def run_git(command):
     except Exception as e:
         return False, "", str(e)
 
+def get_current_branch():
+    success, stdout, _ = run_git("git rev-parse --abbrev-ref HEAD")
+    if success and stdout:
+        return stdout.strip()
+    return None
+
 def auto_commit_local_changes():
-    print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到 main...")
-    
-    # 1. 确保在 main 分支（为了安全，只在 main 提交你的 Excel 修改）
-    run_git("git checkout main")
+    print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到 [{CONTROL_BRANCH}]...")
+    run_git(f"git checkout {CONTROL_BRANCH}")
     
     # 2. 检查是否有东西需要提交
     success, status_out, _ = run_git("git status --porcelain")
@@ -138,10 +145,9 @@ def sync_all_in_one():
     # --- 阶段 0: 环境同步 ---
     print(f"\n[阶段 0: 基础设施对齐]")
     os.chdir(PROJECT_ROOT)
-    
     steps = [
-        ("切换至主分支 (main)", "git checkout main"),
-        ("拉取云端最新代码 (pull)", "git pull origin main")
+        (f"切换至任务中心分支 ({CONTROL_BRANCH})", f"git checkout {CONTROL_BRANCH}"),
+        (f"拉取云端最新代码 (pull {CONTROL_BRANCH})", f"git pull origin {CONTROL_BRANCH}")
     ]
     
     for i, (desc, cmd) in enumerate(steps, 1):
@@ -372,9 +378,27 @@ def sync_all_in_one():
             else:
                 print(f"❌ (原因: {stderr if stderr else '分支校验不匹配'})")
                 continue
+
+        # 2.5 仅从指定分支同步代码目录，避免把 task_center 中的任务配置带入任务分支
+        print(f"  🚀 步骤 2.5: 从 [{CODE_SOURCE_BRANCH}] 同步代码目录 {CODE_SYNC_DIRS}...", end=" ", flush=True)
+        copy_failed = False
+        for code_dir in CODE_SYNC_DIRS:
+            sync_ok, _, sync_err = run_git(f"git checkout {CODE_SOURCE_BRANCH} -- {code_dir}")
+            if not sync_ok:
+                # 当目录不存在时给出提示并继续，不中断整条任务
+                if "did not match any file" in sync_err:
+                    print(f"\n    ⚠️ 目录不存在，已跳过: {code_dir}")
+                    continue
+                copy_failed = True
+                print(f"\n    ❌ 同步目录失败 [{code_dir}]: {sync_err}")
+                break
+        if copy_failed:
+            continue
+        print("✅")
         
-        # 3. 建立快照
+        # 3. 建立快照（包含上一步同步过来的代码目录）
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
+        run_git("git add dev_scripts test_scripts")
         run_git(f'git commit --allow-empty -m "feat({CODE_DIR_NAME}): 开启任务 #{issue_num} 分支"')
         print("✅")
 
@@ -453,11 +477,11 @@ def sync_all_in_one():
     # --- 阶段 3: 数据持久化 ---
     print(f"\n[阶段 3: 指挥中心状态存档]")
     if updated:
-        # 确保在 main 分支上更新 tasks.yaml
+        # 确保在任务中心分支上更新 tasks.yaml
         os.chdir(PROJECT_ROOT)
-        print("  🔄 切换到 main 分支进行状态更新...", end=" ")
-        run_git("git checkout main")
-        run_git("git pull origin main")
+        print(f"  🔄 切换到 {CONTROL_BRANCH} 分支进行状态更新...", end=" ")
+        run_git(f"git checkout {CONTROL_BRANCH}")
+        run_git(f"git pull origin {CONTROL_BRANCH}")
         print("✅")
         
         os.chdir(BASE_DIR)
@@ -465,18 +489,18 @@ def sync_all_in_one():
             yaml.dump(data, f, allow_unicode=True, sort_keys=False)
         print(f"  💾 状态更新: {YAML_FILE.name} 已同步。")
         
-        # 提交并推送更改到 main 分支
+        # 提交并推送更改到任务中心分支
         os.chdir(PROJECT_ROOT)
         run_git('git add task_center/tasks.yaml')
         run_git('git commit -m "chore: 更新任务状态"')
-        run_git('git push origin main')
-        print("  📤 状态更新已推送到 main 分支。")
+        run_git(f'git push origin {CONTROL_BRANCH}')
+        print(f"  📤 状态更新已推送到 {CONTROL_BRANCH} 分支。")
     else:
         print("  😴 无状态变更。")
     
     # 归位
     os.chdir(PROJECT_ROOT)
-    run_git("git checkout main")
+    run_git(f"git checkout {CONTROL_BRANCH}")
     print(f"\n{'='*60}\n🎉 自动化流程全部执行完毕！\n{'='*60}")
 
 if __name__ == "__main__":
