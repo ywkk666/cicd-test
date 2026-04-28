@@ -30,6 +30,7 @@ ALLOWED_BASES = ["main", "develop", "test"] # 允许的合法分支白名单
 CONTROL_BRANCH = "main"  # 任务中心分支：tasks.yaml 只在该分支维护
 CODE_SOURCE_BRANCH = "main"  # 从哪个分支同步业务代码目录到任务分支
 CODE_SYNC_DIRS = ["dev_scripts", "test_scripts"]  # 仅同步这些目录
+TEMP_SWITCH_DEFAULT_BRANCH_FOR_PR = True  # 为了稳定触发 Issue<->PR 关联，创建 PR 时临时切默认分支
 # ==========================================
 
 def run_git(command):
@@ -53,7 +54,10 @@ def get_current_branch():
 
 def auto_commit_local_changes():
     print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到 [{CONTROL_BRANCH}]...")
-    run_git(f"git checkout {CONTROL_BRANCH}")
+    success, _, stderr = run_git(f"git checkout {CONTROL_BRANCH}")
+    if not success:
+        print(f"  ❌ 切换分支失败: {stderr}")
+        return
     
     # 2. 检查是否有东西需要提交
     success, status_out, _ = run_git("git status --porcelain")
@@ -61,12 +65,18 @@ def auto_commit_local_changes():
         print("  ✅ 没有检测到改动，无需保存。")
         return
 
-    # 3. 自动提交所有改动 (包含 Excel 和 YAML)
+    # 3. 自动提交任务中心改动（避免误提交流水线外的本地文件）
     print("  📝 检测到改动，正在建立本地存档...", end=" ")
-    run_git("git add .")
+    run_git("git add task_center/tasks.yaml task_center/task_manager.xlsx")
     # 加上 [skip ci] 是为了防止如果你有其他自动化流程被这个 commit 触发
-    run_git('git commit -m "chore: 运行脚本前的自动快照 [skip ci]"')
-    print("✅ 已保存")
+    commit_ok, _, commit_err = run_git('git commit -m "chore: 运行脚本前的自动快照 [skip ci]"')
+    if commit_ok:
+        print("✅ 已保存")
+    else:
+        if "nothing to commit" in commit_err:
+            print("✅ 无需保存（任务中心文件无新增改动）")
+        else:
+            print(f"❌ 失败: {commit_err}")
 
 def add_to_project_by_name(token, user_login, project_name, content_id):
     """
@@ -208,7 +218,6 @@ def sync_all_in_one():
         
 
         # 分支校验
-        ALLOWED_BASES = ["main", "develop", "test"]
         if target_base not in ALLOWED_BASES:
             print(f"\n--- 任务 [{idx}/{total_tasks}]: {title} ---")
             print(f"  ❌ 错误: 不支持的目标分支 '{target_base}'，请检查 YAML 配置。")
@@ -404,9 +413,7 @@ def sync_all_in_one():
 
         # 4. 推送
         print(f"  🚀 步骤 4: 推送分支至云端仓库...", end=" ", flush=True)
-        remote_url = f"https://{ACCESS_TOKEN}@github.com/{REPO_NAME}.git"
-        success, _, err = run_git(f"git push -u {remote_url} {new_branch}")
-        run_git(f"git remote set-url origin https://github.com/{REPO_NAME}.git")
+        success, _, err = run_git(f"git push -u origin {new_branch}")
         if success: print("✅")
         else:
             print(f"❌ (原因: {err})"); continue
@@ -415,15 +422,19 @@ def sync_all_in_one():
         print(f"  🚀 步骤 5: 开启拉取请求 (PR) 并同步所有属性...", end=" ", flush=True)
         try:
             target_base = task.get("base_branch", DEFAULT_BASE_BRANCH)
-            
-            # 【杀手锏动作 1】：动态切换默认分支
-            # 只有当目标分支不是当前默认分支时才切换，减少 API 调用
-            if repo.default_branch != target_base:
-                repo.edit(default_branch=target_base)
-                print(f" (已临时将默认分支切至 {target_base})", end="")
 
-            # 【杀手锏动作 2】：创建 PR
-            # 必须包含 Closes 关键字，且在默认分支为 target_base 时创建
+            # 某些仓库策略下，Issue 与 PR 的自动关联仅在默认分支上下文更稳定。
+            # 这里采用“临时切换 -> 创建PR -> 立即切回”的方式，尽量兼顾稳定性和副作用控制。
+            original_default_branch = repo.default_branch
+            switched_default_branch = False
+            if TEMP_SWITCH_DEFAULT_BRANCH_FOR_PR and original_default_branch != target_base:
+                try:
+                    repo.edit(default_branch=target_base)
+                    switched_default_branch = True
+                    print(f" (临时默认分支->{target_base})", end="")
+                except Exception as switch_err:
+                    print(f" ⚠️ (默认分支临时切换失败: {switch_err})", end="")
+
             pr_body = f"Closes #{issue_num}\n\nLinked via automated deployment."
             pr = repo.create_pull(
                 title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
@@ -471,6 +482,14 @@ def sync_all_in_one():
                 "status": "processing" # 使用 processing，下次运行就不会重复触发
             })
             updated = True
+
+            # 及时恢复默认分支，降低对团队协作和 CI 的影响
+            if switched_default_branch:
+                try:
+                    repo.edit(default_branch=original_default_branch)
+                    print(f" (默认分支已恢复->{original_default_branch})", end="")
+                except Exception as restore_err:
+                    print(f" ⚠️ (默认分支恢复失败: {restore_err})", end="")
         except Exception as e:
             print(f"❌ 失败: {e}")
 
@@ -492,9 +511,16 @@ def sync_all_in_one():
         # 提交并推送更改到任务中心分支
         os.chdir(PROJECT_ROOT)
         run_git('git add task_center/tasks.yaml')
-        run_git('git commit -m "chore: 更新任务状态"')
-        run_git(f'git push origin {CONTROL_BRANCH}')
-        print(f"  📤 状态更新已推送到 {CONTROL_BRANCH} 分支。")
+        commit_ok, _, commit_err = run_git('git commit -m "chore: 更新任务状态"')
+        if not commit_ok and "nothing to commit" not in commit_err:
+            print(f"  ❌ 状态提交失败: {commit_err}")
+            return
+
+        push_ok, _, push_err = run_git(f'git push origin {CONTROL_BRANCH}')
+        if push_ok:
+            print(f"  📤 状态更新已推送到 {CONTROL_BRANCH} 分支。")
+        else:
+            print(f"  ❌ 状态推送失败: {push_err}")
     else:
         print("  😴 无状态变更。")
     
