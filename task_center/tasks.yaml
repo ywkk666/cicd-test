@@ -13,10 +13,10 @@ issues:
   labels:
   - bug
   body: cicd测试01
-  status: processing
-  issue_number: 152
-  branch_name: feat/task-152-test
-  pr_url: https://github.com/ywkk666/cicd-test/pull/153
+  status: 
+  issue_number: 
+  branch_name: 
+  pr_url: 
 - id: 102
   title: cicd测试02
   task_type: dev
@@ -29,7 +29,7 @@ issues:
   labels:
   - bug
   body: cicd测试02
-  status: processing
-  issue_number: 155
-  branch_name: feat/task-155-dev
-  pr_url: https://github.com/ywkk666/cicd-test/pull/156
+  status: 
+  issue_number: 
+  branch_name: 
+  pr_url: 
