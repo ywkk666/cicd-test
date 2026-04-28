@@ -15,7 +15,7 @@ def build_project():
 
 if __name__ == "__main__":
     result = build_project()
-    qqwwee
+    qqwweea
     print(f"构建结果: {'成功' if result else '失败'}")
     # 故意退出码为1，表示失败
     exit(1)
