@@ -30,10 +30,16 @@ ALLOWED_BASES = ["main", "develop", "test"] # 允许的合法分支白名单
 
 def run_git(command):
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, encoding="utf-8")
-        return True, result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        return False, e.stderr.strip()
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8"
+        )
+        return (result.returncode == 0), result.stdout.strip(), result.stderr.strip()
+    except Exception as e:
+        return False, "", str(e)
 
 def auto_commit_local_changes():
     print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到 main...")
@@ -120,11 +126,11 @@ def sync_all_in_one():
     
     for i, (desc, cmd) in enumerate(steps, 1):
         print(f"  ({i}/2) {desc}...", end=" ", flush=True)
-        success, _ = run_git(cmd)
+        success, _, stderr = run_git(cmd)
         if success:
             print("✅")
         else:
-            print("❌")
+            print(f"❌ (原因: {stderr})")
             return
 
     # --- 初始化 GitHub 连接 ---
@@ -328,20 +334,17 @@ def sync_all_in_one():
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
 
         # 执行切换
-        result = run_git(f"git checkout -B {new_branch} origin/{target_base}")
-
-        # 1. 检查退出码 (0 表示系统认为命令成功执行)
-        exit_code = result.returncode if hasattr(result, 'returncode') else result[0]
+        success, _, stderr = run_git(f"git checkout -B {new_branch} origin/{target_base}")
 
         # 2. 物理检查 (确认当前脚下踩的分支到底对不对)
-        verify = run_git("git rev-parse --abbrev-ref HEAD")
-        current_branch = (verify.stdout if hasattr(verify, 'stdout') else verify[1]).strip()
+        verify_success, verify_stdout, _ = run_git("git rev-parse --abbrev-ref HEAD")
+        current_branch = verify_stdout.strip() if verify_success else ""
 
-        if exit_code == 0 and current_branch == new_branch:
+        if success and current_branch == new_branch:
             print("✅")
         else:
             # 只有在真正失败时才打印原因
-            stderr = (result.stderr if hasattr(result, 'stderr') else result[1]).strip()
+            stderr = stderr.strip()
             # 特殊处理：如果 stderr 包含 'set up to track'，这其实是 Git 的废话，可以忽略
             if "set up to track" in stderr and current_branch == new_branch:
                 print("✅")
@@ -357,7 +360,7 @@ def sync_all_in_one():
         # 4. 推送
         print(f"  🚀 步骤 4: 推送分支至云端仓库...", end=" ", flush=True)
         remote_url = f"https://{ACCESS_TOKEN}@github.com/{REPO_NAME}.git"
-        success, err = run_git(f"git push -u {remote_url} {new_branch}")
+        success, _, err = run_git(f"git push -u {remote_url} {new_branch}")
         run_git(f"git remote set-url origin https://github.com/{REPO_NAME}.git")
         if success: print("✅")
         else:
