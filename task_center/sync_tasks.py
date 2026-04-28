@@ -35,6 +35,25 @@ def run_git(command):
     except subprocess.CalledProcessError as e:
         return False, e.stderr.strip()
 
+def auto_commit_local_changes():
+    print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到 main...")
+    
+    # 1. 确保在 main 分支（为了安全，只在 main 提交你的 Excel 修改）
+    run_git("git checkout main")
+    
+    # 2. 检查是否有东西需要提交
+    success, status_out, _ = run_git("git status --porcelain")
+    if not status_out:
+        print("  ✅ 没有检测到改动，无需保存。")
+        return
+
+    # 3. 自动提交所有改动 (包含 Excel 和 YAML)
+    print("  📝 检测到改动，正在建立本地存档...", end=" ")
+    run_git("git add .")
+    # 加上 [skip ci] 是为了防止如果你有其他自动化流程被这个 commit 触发
+    run_git('git commit -m "chore: 运行脚本前的自动快照 [skip ci]"')
+    print("✅ 已保存")
+
 def add_to_project_by_name(token, user_login, project_name, content_id):
     """
     通过项目名称动态查找并添加 Issue/PR
@@ -437,4 +456,5 @@ def sync_all_in_one():
     print(f"\n{'='*60}\n🎉 自动化流程全部执行完毕！\n{'='*60}")
 
 if __name__ == "__main__":
+    auto_commit_local_changes()
     sync_all_in_one()
