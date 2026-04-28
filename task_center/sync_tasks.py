@@ -30,10 +30,42 @@ ALLOWED_BASES = ["main", "develop", "test"] # 允许的合法分支白名单
 
 def run_git(command):
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, encoding="utf-8")
-        return True, result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        return False, e.stderr.strip()
+        # 强制指定编码，防止 Windows 下处理中文路径或 Excel 路径报错
+        result = subprocess.run(
+            command, 
+            shell=True, 
+            capture_output=True, 
+            text=True, 
+            encoding="utf-8"
+        )
+        # 返回 3 个值：是否成功, 标准输出, 错误输出
+        return (result.returncode == 0), result.stdout.strip(), result.stderr.strip()
+    except Exception as e:
+        # 发生系统级错误时也返回 3 个值
+        return False, "", str(e)
+
+def get_current_branch():
+    success, stdout, _ = run_git("git rev-parse --abbrev-ref HEAD")
+    if success and stdout:
+        return stdout.strip()
+    return None
+
+def auto_commit_local_changes():
+    current_branch = get_current_branch() or DEFAULT_BASE_BRANCH
+    print(f"\n📸 [阶段 0.5]: 正在自动保存本地修改到当前分支 [{current_branch}]...")
+
+    # 检查是否有东西需要提交
+    success, status_out, _ = run_git("git status --porcelain")
+    if not status_out:
+        print("  ✅ 没有检测到改动，无需保存。")
+        return
+
+    # 自动提交所有改动 (包含 Excel 和 YAML)
+    print("  📝 检测到改动，正在建立本地存档...", end=" ")
+    run_git("git add .")
+    # 加上 [skip ci] 是为了防止如果你有其他自动化流程被这个 commit 触发
+    run_git('git commit -m "chore: 运行脚本前的自动快照 [skip ci]"')
+    print("✅ 已保存")
 
 def add_to_project_by_name(token, user_login, project_name, content_id):
     """
@@ -90,22 +122,28 @@ def sync_all_in_one():
     print(f"📦 目标仓库: {REPO_NAME}")
     print(f"✅ 鉴权状态: Token 已加载 ({ACCESS_TOKEN[:7]}***)")
     
+
     # --- 阶段 0: 环境同步 ---
     print(f"\n[阶段 0: 基础设施对齐]")
     os.chdir(PROJECT_ROOT)
-    
+    working_branch = get_current_branch() or DEFAULT_BASE_BRANCH
+
     steps = [
-        ("切换至主分支 (main)", "git checkout main"),
-        ("拉取云端最新代码 (pull)", "git pull origin main")
+        (f"切换至工作分支 ({working_branch})", f"git checkout {working_branch}"),
+        (f"拉取云端最新代码 (pull {working_branch})", f"git pull origin {working_branch}")
     ]
     
     for i, (desc, cmd) in enumerate(steps, 1):
         print(f"  ({i}/2) {desc}...", end=" ", flush=True)
-        success, _ = run_git(cmd)
+        
+        # 💡 这里改成了接收 3 个值
+        success, stdout, stderr = run_git(cmd) 
+        
         if success:
             print("✅")
         else:
-            print("❌")
+            # 💡 这样报错时你能看到具体的 Git 错误信息
+            print(f"❌ (原因: {stderr})")
             return
 
     # --- 初始化 GitHub 连接 ---
@@ -134,20 +172,26 @@ def sync_all_in_one():
     # =================================================================
 
     for idx, task in enumerate(issues_list, 1):
-        title = task.get("title", "未命名任务")
+        
         issue_num = task.get("issue_number")
         branch_name = task.get("branch_name")
         pr_url = task.get("pr_url")
         target_user = task.get("assignee")
         reviewer_user = task.get("reviewer")
         target_base = task.get("base_branch", DEFAULT_BASE_BRANCH)
+        title = task.get("title", "未命名任务")
+        
         
         # 【提取新增的 YAML 字段】
         local_id = task.get("id")
         dep_id = task.get("depends_on")
+        task_type = task.get("task_type")
         labels_list = task.get("labels", [])
+        labels_list = list(set(labels_list + [task_type]))
         milestone_name = task.get("milestone")
         yml_project_name = task.get("project_name") # 提取了看板名称，暂留扩展接口
+        title = f"{title} [{task_type}]"
+        
 
         # 分支校验
         ALLOWED_BASES = ["main", "develop", "test"]
@@ -267,7 +311,7 @@ def sync_all_in_one():
 
             issue = repo.create_issue(**issue_kwargs)
             issue_num = issue.number
-            new_branch = f"feat/task-{issue_num}"
+            new_branch = f"feat/task-{issue_num}-{task_type}"
             print(f"✅ #{issue_num}")
 
             # 【新增 5】: 创建成功后，立刻将自己的编号注册到映射表中！供同批次后面的任务使用
@@ -301,9 +345,24 @@ def sync_all_in_one():
 
         # 2. 分支创建
         print(f"  🚀 步骤 2: 从 [{target_base}] 初始化开发分支 [{new_branch}]...", end=" ", flush=True)
-        run_git(f"git fetch origin {target_base}")
-        run_git(f"git checkout -b {new_branch} origin/{target_base}")
-        print("✅")
+
+        # 执行切换
+        success, _, stderr = run_git(f"git checkout -B {new_branch} origin/{target_base}")
+
+        # 物理检查 (确认当前脚下踩的分支到底对不对)
+        current_branch = get_current_branch() or ""
+
+        if success and current_branch == new_branch:
+            print("✅")
+        else:
+            # 只有在真正失败时才打印原因
+            stderr = stderr.strip()
+            # 特殊处理：如果 stderr 包含 'set up to track'，这其实是 Git 的废话，可以忽略
+            if "set up to track" in stderr and current_branch == new_branch:
+                print("✅")
+            else:
+                print(f"❌ (原因: {stderr if stderr else '分支校验不匹配'})")
+                continue
         
         # 3. 建立快照
         print(f"  🚀 步骤 3: 建立 Git 追踪快照 (空提交)...", end=" ", flush=True)
@@ -313,7 +372,7 @@ def sync_all_in_one():
         # 4. 推送
         print(f"  🚀 步骤 4: 推送分支至云端仓库...", end=" ", flush=True)
         remote_url = f"https://{ACCESS_TOKEN}@github.com/{REPO_NAME}.git"
-        success, err = run_git(f"git push -u {remote_url} {new_branch}")
+        success, _, err = run_git(f"git push -u {remote_url} {new_branch}")
         run_git(f"git remote set-url origin https://github.com/{REPO_NAME}.git")
         if success: print("✅")
         else:
@@ -385,17 +444,32 @@ def sync_all_in_one():
     # --- 阶段 3: 数据持久化 ---
     print(f"\n[阶段 3: 指挥中心状态存档]")
     if updated:
+        # 确保在工作分支上更新 tasks.yaml
+        os.chdir(PROJECT_ROOT)
+        print(f"  🔄 切换到 {working_branch} 分支进行状态更新...", end=" ")
+        run_git(f"git checkout {working_branch}")
+        run_git(f"git pull origin {working_branch}")
+        print("✅")
+        
         os.chdir(BASE_DIR)
         with open(YAML_FILE, "w", encoding="utf-8") as f:
             yaml.dump(data, f, allow_unicode=True, sort_keys=False)
         print(f"  💾 状态更新: {YAML_FILE.name} 已同步。")
+        
+        # 提交并推送更改到工作分支
+        os.chdir(PROJECT_ROOT)
+        run_git('git add task_center/tasks.yaml')
+        run_git('git commit -m "chore: 更新任务状态"')
+        run_git(f'git push origin {working_branch}')
+        print(f"  📤 状态更新已推送到 {working_branch} 分支。")
     else:
         print("  😴 无状态变更。")
     
     # 归位
     os.chdir(PROJECT_ROOT)
-    run_git("git checkout main")
+    run_git(f"git checkout {working_branch}")
     print(f"\n{'='*60}\n🎉 自动化流程全部执行完毕！\n{'='*60}")
 
 if __name__ == "__main__":
+    auto_commit_local_changes()
     sync_all_in_one()
