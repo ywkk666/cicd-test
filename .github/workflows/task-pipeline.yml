@@ -16,6 +16,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # dev 流水线脚本（可按需切换）
+  DEV_BUILD_SCRIPT: dev_scripts/build.py
+  DEV_DEPLOY_SCRIPT: dev_scripts/deploy.py
+  # test 流水线脚本（可按需切换）
+  TEST_API_SCRIPT: test_scripts/test_api.py
+  TEST_PERF_SCRIPT: test_scripts/test_performance.py
+
 jobs:
   # 1. 任务类型检测
   detect-task-type:
@@ -70,9 +78,10 @@ jobs:
         run: |
           # 并行执行，确保某个脚本失败时另一个仍继续运行
           set +e
-          python dev_scripts/build.py > build.log 2>&1 &
+          echo "使用脚本: $DEV_BUILD_SCRIPT / $DEV_DEPLOY_SCRIPT"
+          python "$DEV_BUILD_SCRIPT" > build.log 2>&1 &
           pid_build=$!
-          python dev_scripts/deploy.py > deploy.log 2>&1 &
+          python "$DEV_DEPLOY_SCRIPT" > deploy.log 2>&1 &
           pid_deploy=$!
 
           wait $pid_build
@@ -128,9 +137,10 @@ jobs:
         run: |
           # 并行运行多个测试脚本，单个失败不影响另一个继续执行
           set +e
-          python test_scripts/test_api.py > test_api.log 2>&1 &
+          echo "使用脚本: $TEST_API_SCRIPT / $TEST_PERF_SCRIPT"
+          python "$TEST_API_SCRIPT" > test_api.log 2>&1 &
           pid_api=$!
-          python test_scripts/test_performance.py > test_performance.log 2>&1 &
+          python "$TEST_PERF_SCRIPT" > test_performance.log 2>&1 &
           pid_perf=$!
 
           wait $pid_api

@@ -14,7 +14,7 @@ ENV_PATH = BASE_DIR / ".env"
 YAML_FILE = BASE_DIR / "tasks.yaml"
 REPO_NAME = "ywkk666/cicd-test" 
 
-CODE_DIR_NAME = "helloword" 
+CODE_DIR_NAME = "task_center" 
 MY_GITHUB_ID = "ywkk666"
 
 if ENV_PATH.exists():

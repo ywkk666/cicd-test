@@ -10,6 +10,7 @@ import requests
 
 API_BASE = "https://api.github.com"
 WORKFLOW_NAME_DEFAULT = "Task Type Pipeline"
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def parse_date(date_str: str) -> datetime:
@@ -20,7 +21,7 @@ def load_env_token_from_file() -> Optional[str]:
     """
     从 task_center/.env 读取 GITHUB_TOKEN，作为本地手动运行时的兜底。
     """
-    env_path = Path("task_center/.env")
+    env_path = BASE_DIR / ".env"
     if not env_path.exists():
         return None
 
