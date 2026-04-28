@@ -9,7 +9,7 @@ on:
     branches:
         - main
         - develop
-        - feature/*
+        - feat/*
         - bugfix/*
 
 concurrency:
@@ -68,13 +68,51 @@ jobs:
 
       - name: 执行任务
         run: |
-          # 使用简单的并发并在最后汇总
+          # 并行执行，确保某个脚本失败时另一个仍继续运行
+          set +e
           python dev_scripts/build.py > build.log 2>&1 &
+          pid_build=$!
           python dev_scripts/deploy.py > deploy.log 2>&1 &
-          wait
+          pid_deploy=$!
+
+          wait $pid_build
+          build_exit=$?
+          wait $pid_deploy
+          deploy_exit=$?
+
           # 打印日志方便调试
           cat build.log
           cat deploy.log
+
+          # 两个脚本都跑完后再统一判定
+          if [ $build_exit -ne 0 ] || [ $deploy_exit -ne 0 ]; then
+            echo "❌ dev 流水线失败: build_exit=$build_exit, deploy_exit=$deploy_exit"
+            exit 1
+          fi
+
+      - name: 生成 AI 分析报告（dev）
+        if: always()
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          python .github/scripts/ci_report_ai.py \
+            --mode dev \
+            --provider zhipu \
+            --log "build脚本=build.log" \
+            --log "deploy脚本=deploy.log" \
+            --output "ci-report-dev.md"
+
+      - name: 写入工作流摘要（dev）
+        if: always()
+        run: |
+          cat ci-report-dev.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传报告（dev）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report-dev
+          path: ci-report-dev.md
 
   # 3. 测试类型流水线
   test-pipeline:
@@ -101,18 +139,54 @@ jobs:
 
       - name: 并行运行测试脚本
         run: |
-          # 并行运行多个测试脚本
+          # 并行运行多个测试脚本，单个失败不影响另一个继续执行
+          set +e
           python test_scripts/test_api.py > test_api.log 2>&1 &
+          pid_api=$!
           python test_scripts/test_performance.py > test_performance.log 2>&1 &
-          
-          wait
+          pid_perf=$!
+
+          wait $pid_api
+          api_exit=$?
+          wait $pid_perf
+          perf_exit=$?
           
           echo "=== test_api.py 执行结果 ==="
           cat test_api.log
           echo "=== test_performance.py 执行结果 ==="
           cat test_performance.log
 
+          # 两个脚本都跑完后再统一判定
+          if [ $api_exit -ne 0 ] || [ $perf_exit -ne 0 ]; then
+            echo "❌ test 脚本失败: api_exit=$api_exit, perf_exit=$perf_exit"
+            exit 1
+          fi
+
       - name: 运行 pytest 测试
         run: |
           # 运行 pytest，如果没有测试用例会返回代码 5，这里简单处理
           pytest --tb=short || echo "No tests found or tests failed"
+
+      - name: 生成 AI 分析报告（test）
+        if: always()
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          python .github/scripts/ci_report_ai.py \
+            --mode test \
+            --provider zhipu \
+            --log "api测试脚本=test_api.log" \
+            --log "性能测试脚本=test_performance.log" \
+            --output "ci-report-test.md"
+
+      - name: 写入工作流摘要（test）
+        if: always()
+        run: |
+          cat ci-report-test.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传报告（test）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report-test
+          path: ci-report-test.md
