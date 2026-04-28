@@ -99,20 +99,7 @@ jobs:
             --mode dev \
             --provider zhipu \
             --log "build脚本=build.log" \
-            --log "deploy脚本=deploy.log" \
-            --output "ci-report-dev.md"
-
-      - name: 写入工作流摘要（dev）
-        if: always()
-        run: |
-          cat ci-report-dev.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: 上传报告（dev）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-report-dev
-          path: ci-report-dev.md
+            --log "deploy脚本=deploy.log" >> "$GITHUB_STEP_SUMMARY"
 
   # 3. 测试类型流水线
   test-pipeline:
@@ -176,17 +163,4 @@ jobs:
             --mode test \
             --provider zhipu \
             --log "api测试脚本=test_api.log" \
-            --log "性能测试脚本=test_performance.log" \
-            --output "ci-report-test.md"
-
-      - name: 写入工作流摘要（test）
-        if: always()
-        run: |
-          cat ci-report-test.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: 上传报告（test）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-report-test
-          path: ci-report-test.md
+            --log "性能测试脚本=test_performance.log" >> "$GITHUB_STEP_SUMMARY"

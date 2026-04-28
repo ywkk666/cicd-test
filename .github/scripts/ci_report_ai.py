@@ -4,7 +4,7 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 from urllib import request, error
 
 
@@ -15,6 +15,11 @@ ERROR_PATTERNS = [
     r"\bfailed\b",
     r"assertionerror",
 ]
+
+PROVIDER_DEFAULT_MODEL = {
+    "zhipu": "glm-4-flash",
+    "openai": "gpt-4o-mini",
+}
 
 
 def read_text(path: Path) -> str:
@@ -114,13 +119,25 @@ def build_rule_based_summary(mode: str, log_findings: dict[str, list[str]]) -> s
     )
 
 
+def choose_model(provider: str, user_model: Optional[str]) -> str:
+    if user_model:
+        return user_model
+    if provider in PROVIDER_DEFAULT_MODEL:
+        return PROVIDER_DEFAULT_MODEL[provider]
+    # auto 模式默认优先智普
+    return PROVIDER_DEFAULT_MODEL["zhipu"]
+
+
 def build_report(mode: str, logs_map: dict[str, Path], provider: str, model: str) -> str:
     findings: dict[str, list[str]] = {}
     snippets: dict[str, str] = {}
+    missing_logs = []
     for display_name, path in logs_map.items():
         text = read_text(path)
         snippets[display_name] = "\n".join(text.splitlines()[-80:])
         findings[display_name] = detect_issues(text)
+        if not path.exists():
+            missing_logs.append(f"{display_name}({path})")
 
     rule_summary = build_rule_based_summary(mode, findings)
     ai_summary = None
@@ -184,6 +201,15 @@ def build_report(mode: str, logs_map: dict[str, Path], provider: str, model: str
             ]
         )
 
+    if missing_logs:
+        report_lines.extend(
+            [
+                "",
+                "## 日志完整性提醒",
+                f"- 以下日志文件缺失，结论可能不完整：{'; '.join(missing_logs)}",
+            ]
+        )
+
     if not ai_summary:
         report_lines.extend(
             [
@@ -206,22 +232,65 @@ def parse_logs(items: list[str]) -> dict[str, Path]:
     return result
 
 
+def guess_mode_and_logs(input_mode: Optional[str], input_logs: Dict[str, Path]) -> tuple[str, Dict[str, Path]]:
+    if input_mode and input_logs:
+        return input_mode, input_logs
+
+    mode = input_mode
+    logs = dict(input_logs)
+
+    dev_candidates = {
+        "build脚本": Path("build.log"),
+        "deploy脚本": Path("deploy.log"),
+    }
+    test_candidates = {
+        "api测试脚本": Path("test_api.log"),
+        "性能测试脚本": Path("test_performance.log"),
+    }
+
+    dev_exists = any(p.exists() for p in dev_candidates.values())
+    test_exists = any(p.exists() for p in test_candidates.values())
+
+    # 自动推断 mode
+    if not mode:
+        if test_exists and not dev_exists:
+            mode = "test"
+        else:
+            mode = "dev"
+
+    # 自动补全 logs
+    if not logs:
+        if mode == "test":
+            logs = {k: v for k, v in test_candidates.items() if v.exists()}
+            if not logs:
+                logs = test_candidates
+        else:
+            logs = {k: v for k, v in dev_candidates.items() if v.exists()}
+            if not logs:
+                logs = dev_candidates
+
+    return mode, logs
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate CI analysis report")
-    parser.add_argument("--mode", required=True, help="dev or test")
+    parser.add_argument("--mode", choices=["dev", "test"], help="dev or test")
     parser.add_argument("--log", action="append", default=[], help="NAME=PATH")
-    parser.add_argument("--output", default="ci-analysis-report.md")
+    parser.add_argument("--output", help="Optional output markdown file path")
     parser.add_argument("--provider", default="auto", choices=["auto", "zhipu", "openai"])
-    parser.add_argument("--model", default="glm-4-flash")
+    parser.add_argument("--model", help="Optional custom model name")
     args = parser.parse_args()
 
     logs_map = parse_logs(args.log)
-    if not logs_map:
-        raise SystemExit("No valid logs passed. Use --log NAME=PATH")
-
-    report = build_report(args.mode, logs_map, args.provider, args.model)
-    Path(args.output).write_text(report, encoding="utf-8")
-    print(f"report generated: {args.output}")
+    mode, logs_map = guess_mode_and_logs(args.mode, logs_map)
+    model = choose_model(args.provider, args.model)
+    report = build_report(mode, logs_map, args.provider, model)
+    if args.output:
+        Path(args.output).write_text(report, encoding="utf-8")
+        print(f"report generated: {args.output}")
+    else:
+        # 默认输出到 stdout，适合直接写入 GITHUB_STEP_SUMMARY
+        print(report)
 
 
 if __name__ == "__main__":
