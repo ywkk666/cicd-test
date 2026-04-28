@@ -1,6 +1,7 @@
 import os
 import yaml
 import subprocess
+import time
 from pathlib import Path
 from github import Github, Auth
 from dotenv import load_dotenv
@@ -109,6 +110,25 @@ def add_to_project_by_name(token, user_login, project_name, content_id):
     except Exception as e:
         print(f"    ❌ Project 联动失败: {e}")
 
+def init_github_repo_with_retry(max_retries=3, delay_seconds=3):
+    """
+    初始化 GitHub 连接并带重试，避免瞬时网络抖动导致脚本整体崩溃。
+    """
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            g = Github(auth=Auth.Token(ACCESS_TOKEN))
+            repo = g.get_repo(REPO_NAME)
+            return g, repo
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries:
+                print(f"⚠️ GitHub API 连接失败，第 {attempt}/{max_retries} 次重试中: {e}")
+                time.sleep(delay_seconds)
+            else:
+                print(f"❌ 无法连接 GitHub API（已重试 {max_retries} 次）: {e}")
+    return None, None
+
 def sync_all_in_one():
     print(f"\n{'='*50}\n📡 Github 任务分发中心 - 正在启动...\n{'='*50}")
     print(f"📍 根目录: {PROJECT_ROOT}")
@@ -134,8 +154,9 @@ def sync_all_in_one():
             return
 
     # --- 初始化 GitHub 连接 ---
-    g = Github(auth=Auth.Token(ACCESS_TOKEN))
-    repo = g.get_repo(REPO_NAME)
+    g, repo = init_github_repo_with_retry()
+    if not g or not repo:
+        return
 
     if not YAML_FILE.exists():
         print(f"❌ 错误: 找不到文件 {YAML_FILE}")
