@@ -29,7 +29,7 @@ issues:
   labels:
   - bug
   body: cicd测试02
-  status: null
-  issue_number: null
-  branch_name: null
-  pr_url: null
+  status: processing
+  issue_number: 155
+  branch_name: feat/task-155-dev
+  pr_url: https://github.com/ywkk666/cicd-test/pull/156
