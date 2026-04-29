@@ -1,35 +1,51 @@
 project: LinkMate-DX
 repo: ywkk666/cicd-test
 issues:
-- id: 101
-  title: cicd测试01
-  task_type: test
-  assignee: ywkk666
-  reviewer: null
-  base_branch: main
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: cicd测试01
-  status: processing
-  issue_number: 165
-  branch_name: feat/task-165-test
-  pr_url: https://github.com/ywkk666/cicd-test/pull/166
-- id: 102
-  title: cicd测试02
-  task_type: dev
-  assignee: ywkk666
-  reviewer: null
-  base_branch: develop
-  milestone: v1.0-beta
-  depends_on: null
-  project_name: cicd-test-project
-  labels:
-  - bug
-  body: cicd测试02
-  status: processing
-  issue_number: 167
-  branch_name: feat/task-167-dev
-  pr_url: https://github.com/ywkk666/cicd-test/pull/168
+  - id: 101
+    title: cicd测试01
+    task_type: test
+    assignee: ywkk666
+    reviewer:
+    base_branch: main
+    milestone: v1.0-beta
+    depends_on:
+    project_name: cicd-test-project
+    labels:
+      - bug
+    body: cicd测试01
+    status: 
+    issue_number: 
+    branch_name: 
+    pr_url: 
+  - id: 102
+    title: cicd测试02
+    task_type: dev
+    assignee: ywkk666
+    reviewer:
+    base_branch: develop
+    milestone: v1.0-beta
+    depends_on:
+    project_name: cicd-test-project
+    labels:
+      - bug
+    body: cicd测试02
+    status: 
+    issue_number: 
+    branch_name: 
+    pr_url: 
+  - id: 103
+    title: cicd测试03
+    task_type: dev
+    assignee: ywkk666
+    reviewer:
+    base_branch: develop
+    milestone: v1.0-beta
+    depends_on:
+    project_name: cicd-test-project
+    labels:
+      - bug
+    body: cicd测试03
+    status:
+    issue_number:
+    branch_name:
+    pr_url:
