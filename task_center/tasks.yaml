@@ -14,9 +14,9 @@ issues:
   - bug
   body: cicd测试01
   status: processing
-  issue_number: 165
-  branch_name: feat/task-165-test
-  pr_url: https://github.com/ywkk666/cicd-test/pull/166
+  issue_number: 169
+  branch_name: feat/task-169-test
+  pr_url: https://github.com/ywkk666/cicd-test/pull/170
 - id: 102
   title: cicd测试02
   task_type: dev
@@ -30,6 +30,22 @@ issues:
   - bug
   body: cicd测试02
   status: processing
-  issue_number: 167
-  branch_name: feat/task-167-dev
-  pr_url: https://github.com/ywkk666/cicd-test/pull/168
+  issue_number: 171
+  branch_name: feat/task-171-dev
+  pr_url: https://github.com/ywkk666/cicd-test/pull/172
+- id: 103
+  title: cicd测试03
+  task_type: dev
+  assignee: ywkk666
+  reviewer: null
+  base_branch: develop
+  milestone: v1.0-beta
+  depends_on: null
+  project_name: cicd-test-project
+  labels:
+  - bug
+  body: cicd测试03
+  status: processing
+  issue_number: 173
+  branch_name: feat/task-173-dev
+  pr_url: https://github.com/ywkk666/cicd-test/pull/174

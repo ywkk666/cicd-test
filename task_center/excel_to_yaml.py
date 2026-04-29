@@ -1,6 +1,7 @@
 import pandas as pd
 from ruamel.yaml import YAML
 import os
+from io import StringIO
 
 # 1. 初始化 YAML 引擎
 yaml_engine = YAML()
@@ -101,8 +102,19 @@ def sync_excel_to_yaml_final():
     final_output['issues'] = sorted_issues
 
     try:
+        # 先写入内存，再做轻量文本格式化，保持 tasks.yaml 的可读排版习惯
+        # 目标：每个顶层 task（- id）之间空一行，便于人工浏览与区分
+        buffer = StringIO()
+        yaml_engine.dump(final_output, buffer)
+        yaml_text = buffer.getvalue()
+
+        # 仅处理顶层 task 起始行，不影响 labels 等子列表的缩进和结构
+        yaml_text = yaml_text.replace("\n- id:", "\n\n- id:")
+        if not yaml_text.endswith("\n"):
+            yaml_text += "\n"
+
         with open(yaml_path, 'w', encoding='utf-8') as f:
-            yaml_engine.dump(final_output, f)
+            f.write(yaml_text)
         print(f"✨ 同步成功！")
     except Exception as e:
         print(f"❌ 写入 YAML 失败: {e}")

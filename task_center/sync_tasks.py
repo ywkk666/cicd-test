@@ -436,8 +436,9 @@ def sync_all_in_one():
                     print(f" ⚠️ (默认分支临时切换失败: {switch_err})", end="")
 
             pr_body = f"Closes #{issue_num}\n\nLinked via automated deployment."
+            pr_title = f"[{str(task_type).upper()}][AUTO] #{issue_num} {title} ({new_branch} -> {target_base})"
             pr = repo.create_pull(
-                title=f"feat({CODE_DIR_NAME}): {title} (#{issue_num})",
+                title=pr_title,
                 body=pr_body,
                 head=new_branch,
                 base=target_base
