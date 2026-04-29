@@ -1,4 +1,8 @@
 name: Task Type Pipeline
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && format('[PR] #{0} | {1} | {2}->{3}', github.event.pull_request.number, github.event.pull_request.title, github.head_ref, github.base_ref)
+      || format('[PUSH] {0} | {1}', github.ref_name, github.event.head_commit.message) }}
 
 on:
   pull_request:
