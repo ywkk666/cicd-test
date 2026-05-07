@@ -6,17 +6,17 @@ issues:
   task_type: test
   assignee: ywkk666
   reviewer: null
-  base_branch: main
+  base_branch: develop
   milestone: v1.0-beta
   depends_on: null
   project_name: cicd-test-project
   labels:
   - bug
   body: cicd测试01
-  status: processing
-  issue_number: 181
-  branch_name: feat/task-181-test
-  pr_url: https://github.com/ywkk666/cicd-test/pull/182
+  status:
+  issue_number:
+  branch_name:
+  pr_url:
 - id: 102
   title: cicd测试02
   task_type: dev
@@ -29,10 +29,10 @@ issues:
   labels:
   - bug
   body: cicd测试02
-  status: processing
-  issue_number: 183
-  branch_name: feat/task-183-dev
-  pr_url: https://github.com/ywkk666/cicd-test/pull/184
+  status:
+  issue_number:
+  branch_name:
+  pr_url:
 - id: 103
   title: cicd测试03
   task_type: dev
@@ -45,7 +45,7 @@ issues:
   labels:
   - bug
   body: cicd测试03
-  status: processing
-  issue_number: 185
-  branch_name: feat/task-185-dev
-  pr_url: https://github.com/ywkk666/cicd-test/pull/186
+  status:
+  issue_number:
+  branch_name:
+  pr_url: 
