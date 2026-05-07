@@ -1,0 +1,56 @@
+# 合并到非默认分支（develop / test）时，GitHub 不会根据 PR 正文里的 Closes # 自动关 Issue。
+# 本工作流在 PR 成功 merge 进这些分支后，显式关闭正文中引用的 Issue。
+name: Close linked issues on merge (develop/test)
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - develop
+      - test
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  close-linked-issues:
+    # 仅在“已合并”（非单纯关闭 PR）时执行
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse Closes/Fixes and close issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const title = context.payload.pull_request.title || '';
+            const text = `${body}\n${title}`;
+            const re =
+              /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*#\s*(\d+)/gi;
+            const seen = new Set();
+            let m;
+            while ((m = re.exec(text)) !== null) {
+              const n = parseInt(m[1], 10);
+              if (!Number.isNaN(n)) seen.add(n);
+            }
+            if (seen.size === 0) {
+              core.info('No closing keywords found in PR title/body.');
+              return;
+            }
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            for (const issue_number of seen) {
+              try {
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number,
+                  state: 'closed',
+                });
+                core.info(`Closed issue #${issue_number}`);
+              } catch (e) {
+                core.warning(`Could not close #${issue_number}: ${e.message}`);
+              }
+            }
