@@ -13,10 +13,10 @@ issues:
   labels:
   - bug
   body: cicd测试01
-  status: processing
-  issue_number: 187
-  branch_name: feat/task-187-test
-  pr_url: https://github.com/ywkk666/cicd-test/pull/188
+  status: 
+  issue_number: 
+  branch_name: 
+  pr_url: 
 - id: 102
   title: cicd测试02
   task_type: dev
@@ -29,10 +29,10 @@ issues:
   labels:
   - bug
   body: cicd测试02
-  status: processing
-  issue_number: 189
-  branch_name: feat/task-189-dev
-  pr_url: https://github.com/ywkk666/cicd-test/pull/190
+  status: 
+  issue_number: 
+  branch_name: 
+  pr_url: 
 - id: 103
   title: cicd测试03
   task_type: dev
@@ -45,7 +45,7 @@ issues:
   labels:
   - bug
   body: cicd测试03
-  status: processing
-  issue_number: 191
-  branch_name: feat/task-191-dev
-  pr_url: https://github.com/ywkk666/cicd-test/pull/192
+  status: 
+  issue_number: 
+  branch_name:
+  pr_url: 
