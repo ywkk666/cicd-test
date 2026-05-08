@@ -1,11 +1,15 @@
-# 合并到非默认分支（develop / test）时，GitHub 不会根据 PR 正文里的 Closes # 自动关 Issue。
-# 本工作流在 PR 成功 merge 进这些分支后，显式关闭正文中引用的 Issue。
+# 合并到 develop / test 时，GitHub 不一定会按 PR 正文里的 Closes # 自动关 Issue（与默认分支策略有关）。
+# 本工作流在「PR 已合并」或「push 带来 merge commit」时，显式关闭 PR 正文/标题里引用的 Issue。
+#
+# 注意：若仓库默认分支是 main，请把本文件也合并进 main，否则部分 pull_request 触发可能不生效；
+# push 触发则要求本文件存在于 develop/test 分支（合并进该分支后即可）。
 name: Close linked issues on merge (develop/test)
 
 on:
   pull_request:
     types:
       - closed
+  push:
     branches:
       - develop
       - test
@@ -13,30 +17,100 @@ on:
 permissions:
   issues: write
   pull-requests: read
+  contents: read
 
 jobs:
-  close-linked-issues:
-    # 仅在“已合并”（非单纯关闭 PR）时执行
-    if: github.event.pull_request.merged == true
+  from-pr-closed:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.merged == true
+      && (github.event.pull_request.base.ref == 'develop'
+          || github.event.pull_request.base.ref == 'test')
     runs-on: ubuntu-latest
     steps:
-      - name: Parse Closes/Fixes and close issues
+      - name: Close issues from PR body/title
         uses: actions/github-script@v7
         with:
           script: |
-            const body = context.payload.pull_request.body || '';
-            const title = context.payload.pull_request.title || '';
-            const text = `${body}\n${title}`;
+            const pr = context.payload.pull_request;
+            const text = `${pr.body || ''}\n${pr.title || ''}`;
+            core.info(`base=${pr.base.ref} merged=${pr.merged} pr=#${pr.number}`);
+            core.info(`scan text length=${text.length}`);
+
+            async function closeFromText(github, owner, repo, text) {
+              const re =
+                /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*#\s*(\d+)/gi;
+              const seen = new Set();
+              let m;
+              while ((m = re.exec(text)) !== null) {
+                const n = parseInt(m[1], 10);
+                if (!Number.isNaN(n)) seen.add(n);
+              }
+              if (seen.size === 0) {
+                core.info('No closing keywords in PR title/body.');
+                return;
+              }
+              for (const issue_number of seen) {
+                try {
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number,
+                    state: 'closed',
+                  });
+                  core.info(`Closed issue #${issue_number}`);
+                } catch (e) {
+                  core.warning(`Could not close #${issue_number}: ${e.message}`);
+                }
+              }
+            }
+
+            await closeFromText(github, context.repo.owner, context.repo.repo, text);
+
+  from-push-merge:
+    if: >-
+      github.event_name == 'push'
+      && github.event.head_commit != null
+      && startsWith(github.event.head_commit.message, 'Merge pull request')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve PR from merge message and close linked issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const msg = context.payload.head_commit.message || '';
+            core.info(`merge message: ${msg.split('\n')[0]}`);
+            const m = msg.match(/Merge pull request #(\d+)/);
+            if (!m) {
+              core.info('No PR number in merge commit message, skip.');
+              return;
+            }
+            const prNumber = parseInt(m[1], 10);
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            if (!pr.merged) {
+              core.info(`PR #${prNumber} not merged, skip.`);
+              return;
+            }
+            const base = pr.base.ref;
+            if (base !== 'develop' && base !== 'test') {
+              core.info(`PR #${prNumber} base=${base}, not develop/test, skip.`);
+              return;
+            }
+            const text = `${pr.body || ''}\n${pr.title || ''}`;
             const re =
               /(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s*#\s*(\d+)/gi;
             const seen = new Set();
-            let m;
-            while ((m = re.exec(text)) !== null) {
-              const n = parseInt(m[1], 10);
+            let mm;
+            while ((mm = re.exec(text)) !== null) {
+              const n = parseInt(mm[1], 10);
               if (!Number.isNaN(n)) seen.add(n);
             }
             if (seen.size === 0) {
-              core.info('No closing keywords found in PR title/body.');
+              core.info('No closing keywords in PR title/body.');
               return;
             }
             const owner = context.repo.owner;
